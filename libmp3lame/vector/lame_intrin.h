@@ -30,4 +30,10 @@ init_xrpow_core_sse(gr_info * const cod_info, FLOAT xrpow[576], int upper, FLOAT
 void
 fht_SSE2(FLOAT* , int);
 
+#ifdef HAVE_NEON_INTRINSICS
+unsigned int
+count_bit_esc_neon(const int *ix, const int *end,
+                   const uint32_t *largetbl, unsigned int *nclamped);
+#endif
+
 #endif

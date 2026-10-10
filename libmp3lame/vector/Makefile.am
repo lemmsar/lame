@@ -2,7 +2,7 @@
 
 include $(top_srcdir)/Makefile.am.global
 
-if WITH_XMM
+if WITH_VECTOR
 noinst_LTLIBRARIES = liblamevectorroutines.la
 endif
 
@@ -17,14 +17,19 @@ INCLUDES = @INCLUDES@ \
 DEFS = @DEFS@ @CONFIG_DEFS@
 
 xmm_sources = xmm_quantize_sub.c
+neon_sources = neon_choose_table.c
 
+liblamevectorroutines_la_SOURCES =
 if WITH_XMM
-liblamevectorroutines_la_SOURCES = $(xmm_sources)
+liblamevectorroutines_la_SOURCES += $(xmm_sources)
+endif
+if WITH_NEON
+liblamevectorroutines_la_SOURCES += $(neon_sources)
 endif
 
 noinst_HEADERS = lame_intrin.h
 
-EXTRA_liblamevectorroutines_la_SOURCES = $(xmm_sources)
+EXTRA_liblamevectorroutines_la_SOURCES = $(xmm_sources) $(neon_sources)
 
 CLEANFILES = lclint.txt
 

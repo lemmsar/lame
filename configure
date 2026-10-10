@@ -666,6 +666,8 @@ WITH_VECTOR_FALSE
 WITH_VECTOR_TRUE
 WITH_XMM_FALSE
 WITH_XMM_TRUE
+WITH_NEON_FALSE
+WITH_NEON_TRUE
 LIB_WITH_DECODER_FALSE
 LIB_WITH_DECODER_TRUE
 mpg123_LIBS
@@ -842,6 +844,8 @@ enable_mp3x
 enable_mp3rtp
 enable_ipv6
 enable_dynamic_frontends
+enable_neon
+enable_fast_log
 enable_expopt
 enable_debug
 enable_year2038
@@ -1524,6 +1528,10 @@ Optional Features:
   --disable-ipv6          Disable IPV6 support(By default ipv6 (with ipv4)
                           support is enabled)
   --enable-dynamic-frontends Link frontends against shared libraries default=no
+  --enable-neon           enable ARM64 NEON Huffman bit counting (default=no)
+  --enable-fast-log[=auto/yes/no]
+                          use approximate log tables (default=auto, release
+                          architecture defaults)
   --enable-expopt=full,norm Whether to enable experimental optimizations
                             default=no
   --enable-debug=alot,norm Enable debugging (disables optimizations)
@@ -17349,7 +17357,7 @@ fi
 # Check whether --enable-ieeehack was given.
 if test ${enable_ieeehack+y}
 then :
-  enableval=$enable_ieeehack; IEEE754_HACK="yes"
+  enableval=$enable_ieeehack; IEEE754_HACK="$enableval"
 else case e in #(
   e) IEEE754_HACK="no" ;;
 esac
@@ -17365,6 +17373,9 @@ printf '%s\n' "#define TAKEHIRO_IEEE754_HACK 1" >>confdefs.h
 
 printf '%s\n' "#define TAKEHIRO_IEEE754_HACK 0" >>confdefs.h
 
+		;;
+	*)
+		as_fn_error $? "--enable-ieeehack accepts only yes or no" "$LINENO" 5
 		;;
 esac
 
@@ -20243,6 +20254,8 @@ printf '%s\n' "${TERMCAP_DEFAULT}" >&6; }
 
 
 WITH_VECTOR=no
+WITH_NEON=no
+FAST_LOG_DEFAULT=no
 case $host_cpu in
 x86_64|amd64)
 	CPUTYPE="no"
@@ -20251,9 +20264,7 @@ x86_64|amd64)
 		WITH_VECTOR=yes
 	fi
 
-
-printf '%s\n' "#define USE_FAST_LOG 1" >>confdefs.h
-
+	FAST_LOG_DEFAULT=yes
 	;;
 *86)
 	CPUTYPE="i386"
@@ -20262,22 +20273,95 @@ printf '%s\n' "#define USE_FAST_LOG 1" >>confdefs.h
 		WITH_VECTOR=yes
 	fi
 
-
-printf '%s\n' "#define USE_FAST_LOG 1" >>confdefs.h
-
+	FAST_LOG_DEFAULT=yes
 	;;
 powerpc)
 	CPUTYPE="no"
 
 	# The following should not get enabled on a G5. HOWTO check for a G5?
-
-printf '%s\n' "#define USE_FAST_LOG 1" >>confdefs.h
-
+	FAST_LOG_DEFAULT=yes
 	;;
 *)
 	CPUTYPE="no"
 	;;
 esac
+
+# Check whether --enable-neon was given.
+if test ${enable_neon+y}
+then :
+  enableval=$enable_neon; WITH_NEON="$enableval"
+else case e in #(
+  e) WITH_NEON=no ;;
+esac
+fi
+
+case "$WITH_NEON" in
+  yes)
+    case "$host_cpu" in
+      aarch64*|arm64)
+        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for ARM64 NEON intrinsics" >&5
+printf %s "checking for ARM64 NEON intrinsics... " >&6; }
+        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <arm_neon.h>
+int
+main (void)
+{
+int32x4_t v = vdupq_n_s32(15); return vgetq_lane_s32(vminq_s32(v, v), 0);
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf '%s\n' "yes" >&6; }
+
+printf '%s\n' "#define HAVE_NEON_INTRINSICS 1" >>confdefs.h
+
+           WITH_VECTOR=yes
+else case e in #(
+  e) { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf '%s\n' "no" >&6; }
+           as_fn_error $? "--enable-neon requires working ARM64 NEON intrinsics" "$LINENO" 5 ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+        ;;
+      *) as_fn_error $? "--enable-neon is supported only on ARM64; use --disable-neon for the scalar path" "$LINENO" 5 ;;
+    esac
+    ;;
+  no) ;;
+  *) as_fn_error $? "--enable-neon accepts only yes or no" "$LINENO" 5 ;;
+esac
+ if test "x$WITH_NEON" = xyes; then
+  WITH_NEON_TRUE=
+  WITH_NEON_FALSE='#'
+else
+  WITH_NEON_TRUE='#'
+  WITH_NEON_FALSE=
+fi
+
+
+# Check whether --enable-fast-log was given.
+if test ${enable_fast_log+y}
+then :
+  enableval=$enable_fast_log; USE_FAST_LOG_OPTION="$enableval"
+else case e in #(
+  e) USE_FAST_LOG_OPTION=auto ;;
+esac
+fi
+
+case "$USE_FAST_LOG_OPTION" in
+  auto) USE_FAST_LOG_OPTION="$FAST_LOG_DEFAULT" ;;
+  yes|no) ;;
+  *) as_fn_error $? "--enable-fast-log accepts only auto, yes or no" "$LINENO" 5 ;;
+esac
+if test "x$USE_FAST_LOG_OPTION" = xyes; then
+
+printf '%s\n' "#define USE_FAST_LOG 1" >>confdefs.h
+
+fi
 
 # which vector code do we support to build on this machine?
  if test "x${WITH_XMM}" = "xyes"; then
@@ -21026,6 +21110,10 @@ fi
 
 if test -z "${LIB_WITH_DECODER_TRUE}" && test -z "${LIB_WITH_DECODER_FALSE}"; then
   as_fn_error $? "conditional \"LIB_WITH_DECODER\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${WITH_NEON_TRUE}" && test -z "${WITH_NEON_FALSE}"; then
+  as_fn_error $? "conditional \"WITH_NEON\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${WITH_XMM_TRUE}" && test -z "${WITH_XMM_FALSE}"; then
