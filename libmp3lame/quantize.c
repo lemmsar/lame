@@ -895,7 +895,7 @@ inc_subblock_gain(const lame_internal_flags * const gfc, gr_info * const cod_inf
 
             scalefac[sfb] = 0;
             {
-                int const gain = 210 + (s << (cod_info->scalefac_scale + 1));
+                int const gain = 210 + s * (1 << (cod_info->scalefac_scale + 1));
                 amp = IPOW20(gain);
             }
             j += width * (window + 1);

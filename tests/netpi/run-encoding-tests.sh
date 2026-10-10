@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run against a configured shared-library build with --disable-decoder.
+# Run against a configured build with --disable-decoder.
 set -eu
 
 test_source_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
@@ -15,12 +15,16 @@ test_cc=${CC:-cc}
     -L"$test_build_dir/libmp3lame/.libs" -Wl,-rpath,"$test_build_dir/libmp3lame/.libs" \
     ${LDFLAGS:-} -lmp3lame -lm -o "$test_output_dir/test_encoding"
 
-# Include vbrquantize.c in the white-box test, then link the other library objects.
+# Include vbrquantize.c in the white-box test, then resolve its private dependencies.
 set --
-for test_object in "$test_build_dir"/libmp3lame/.libs/*.o; do
-    case "$test_object" in */vbrquantize.o) continue ;; esac
-    set -- "$@" "$test_object"
-done
+if [ -f "$test_build_dir/libmp3lame/.libs/libmp3lame.a" ]; then
+    set -- "$test_build_dir/libmp3lame/.libs/libmp3lame.a"
+else
+    for test_object in "$test_build_dir"/libmp3lame/.libs/*.o; do
+        case "$test_object" in */vbrquantize.o) continue ;; esac
+        set -- "$@" "$test_object"
+    done
+fi
 for test_archive in "$test_build_dir"/libmp3lame/vector/.libs/*.a \
                     "$test_build_dir"/libmp3lame/i386/.libs/*.a; do
     if [ -f "$test_archive" ]; then

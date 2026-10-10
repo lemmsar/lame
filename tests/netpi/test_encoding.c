@@ -166,6 +166,88 @@ save_encoded(const char *directory, const encoded_t *encoded, int rate,
     CHECK(fclose(output) == 0);
 }
 
+static void
+check_vbr_tag(int rate, int channels)
+{
+    const float pcm[4096] = {0};
+    unsigned char output[32768], tag[4096];
+    lame_t encoder = lame_init();
+    int written, total, version, rate_index, tag_rate, side_info;
+    size_t tag_size;
+    static const int rates[] = {44100, 48000, 32000};
+    CHECK(encoder != NULL);
+    CHECK(lame_set_num_channels(encoder, channels) == 0);
+    CHECK(lame_set_in_samplerate(encoder, rate) == 0);
+    CHECK(lame_set_out_samplerate(encoder, rate) == 0);
+    CHECK(lame_set_mode(encoder, channels == 2 ? JOINT_STEREO : MONO) == 0);
+    CHECK(lame_set_VBR(encoder, vbr_default) == 0);
+    CHECK(lame_set_VBR_quality(encoder, 0.f) == 0);
+    CHECK(lame_set_bWriteVbrTag(encoder, 1) == 0);
+    lame_set_write_id3tag_automatic(encoder, 0);
+    CHECK(lame_init_params(encoder) == 0);
+    total = lame_encode_buffer_ieee_float(encoder, pcm, pcm, 4096, output, sizeof(output));
+    CHECK(total >= 0 && (size_t)total < sizeof(output));
+    written = lame_encode_flush(encoder, output + total, (int)sizeof(output) - total);
+    CHECK(written >= 0);
+    total += written;
+    memset(tag, 0xa5, sizeof(tag));
+    tag_size = lame_get_lametag_frame(encoder, tag, sizeof(tag));
+    CHECK(tag_size > 0 && tag_size <= sizeof(tag) && tag_size <= (size_t)total);
+    CHECK(tag[0] == 0xff && (tag[1] & 0xe0) == 0xe0);
+    CHECK((tag[1] & 7) == 3); /* Layer III, no CRC. */
+    version = (tag[1] >> 3) & 3;
+    rate_index = (tag[2] >> 2) & 3;
+    CHECK(version != 1 && rate_index != 3);
+    tag_rate = rates[rate_index] / (version == 3 ? 1 : version == 2 ? 2 : 4);
+    CHECK(tag_rate == rate);
+    CHECK(((tag[3] >> 6) == 3 ? 1 : 2) == channels);
+    side_info = version == 3 ? (channels == 1 ? 17 : 32) : (channels == 1 ? 9 : 17);
+    CHECK(tag_size > (size_t)side_info + 8);
+    CHECK(memcmp(tag + 4 + side_info, "Xing", 4) == 0);
+    CHECK(lame_close(encoder) == 0);
+}
+
+static void
+check_id3_text_frames(void)
+{
+    lame_t encoder = lame_init();
+    unsigned char tag[4096];
+    size_t size, offset;
+    int titles = 0, artists = 0;
+    CHECK(encoder != NULL);
+    id3tag_init(encoder);
+    id3tag_v2_only(encoder);
+    CHECK(id3tag_set_textinfo_latin1(encoder, "TIT2", "Previous title") == 0);
+    CHECK(id3tag_set_textinfo_latin1(encoder, "TIT2", "Final title") == 0);
+    CHECK(id3tag_set_textinfo_latin1(encoder, "TPE1", "Example artist") == 0);
+    CHECK(id3tag_set_textinfo_latin1(encoder, "PRIV", "Unsupported") == -255);
+    CHECK(lame_init_params(encoder) == 0);
+    size = lame_get_id3v2_tag(encoder, tag, sizeof(tag));
+    CHECK(size > 10 && size <= sizeof(tag));
+    CHECK(memcmp(tag, "ID3", 3) == 0 && tag[3] == 3);
+    for (offset = 10; offset < size && tag[offset] != 0; ) {
+        const unsigned char *frame = tag + offset;
+        size_t frame_size;
+        CHECK(size - offset >= 10);
+        frame_size = ((size_t)frame[4] << 24) | ((size_t)frame[5] << 16) |
+                     ((size_t)frame[6] << 8) | frame[7];
+        CHECK(frame_size > 0 && frame_size <= size - offset - 10);
+        if (memcmp(frame, "TIT2", 4) == 0) {
+            CHECK(frame[10] == 0 && frame_size == strlen("Final title") + 1);
+            CHECK(memcmp(frame + 11, "Final title", strlen("Final title")) == 0);
+            ++titles;
+        }
+        if (memcmp(frame, "TPE1", 4) == 0) {
+            CHECK(frame[10] == 0 && frame_size == strlen("Example artist") + 1);
+            CHECK(memcmp(frame + 11, "Example artist", strlen("Example artist")) == 0);
+            ++artists;
+        }
+        offset += 10 + frame_size;
+    }
+    CHECK(titles == 1 && artists == 1);
+    CHECK(lame_close(encoder) == 0);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -180,6 +262,7 @@ main(int argc, char **argv)
     unsigned int rate_index, setting_index;
     int channels, silent, cases = 0;
     CHECK(argc <= 2);
+    check_id3_text_frames();
     for (rate_index = 0; rate_index < sizeof(rates) / sizeof(rates[0]); ++rate_index) {
         const int rate = rates[rate_index];
         const int count = rate / 2 + 137;
@@ -187,6 +270,7 @@ main(int argc, char **argv)
         float *right = malloc((size_t)count * sizeof(*right));
         CHECK(left != NULL && right != NULL);
         for (channels = 1; channels <= 2; ++channels) {
+            check_vbr_tag(rate, channels);
             for (silent = 0; silent <= 1; ++silent) {
                 make_pcm(left, right, count, rate, silent);
                 for (setting_index = 0; setting_index < sizeof(settings) / sizeof(settings[0]);
@@ -209,6 +293,7 @@ main(int argc, char **argv)
         free(left);
         free(right);
     }
-    printf("encoding regression: %d cases, 200 encodes passed\n", cases);
+    printf("encoding regression: %d cases, %d encodes, 10 Xing tags and ID3 text frames passed\n",
+           cases, cases * 2);
     return 0;
 }
