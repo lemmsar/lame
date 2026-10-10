@@ -1900,6 +1900,8 @@ psymodel_init(lame_global_flags const *gfp)
     memset(norm, 0, sizeof(norm));
 
     gd = lame_calloc(PsyConst_t, 1);
+    if (gd == NULL)
+        return -2;
     gfc->cd_psy = gd;
 
     gd->force_short_block_calc = gfp->experimentalZ;
@@ -1952,7 +1954,7 @@ psymodel_init(lame_global_flags const *gfp)
     }
     i = init_s3_values(&gd->l.s3, gd->l.s3ind, gd->l.npart, bval, bval_width, norm);
     if (i)
-        return i;
+        goto allocation_failed;
 
     /* compute long block specific values, ATH and MINVAL */
     j = 0;
@@ -2051,7 +2053,7 @@ psymodel_init(lame_global_flags const *gfp)
 
     i = init_s3_values(&gd->s.s3, gd->s.s3ind, gd->s.npart, bval, bval_width, norm);
     if (i)
-        return i;
+        goto allocation_failed;
 
 
     init_mask_add_max_values();
@@ -2164,4 +2166,11 @@ psymodel_init(lame_global_flags const *gfp)
     memcpy(&gd->l_to_s, &gd->l, sizeof(gd->l_to_s));
     init_numline(&gd->l_to_s, sfreq, BLKSIZE, 192, SBMAX_s, gfc->scalefac_band.s);
     return 0;
+
+allocation_failed:
+    free(gd->l.s3);
+    free(gd->s.s3);
+    free(gd);
+    gfc->cd_psy = NULL;
+    return -2;
 }

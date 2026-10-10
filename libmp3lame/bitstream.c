@@ -149,7 +149,7 @@ putheader_bits(lame_internal_flags * gfc)
 
 /*write j bits into the bit stream */
 inline static void
-putbits2(lame_internal_flags * gfc, int val, int j)
+putbits2(lame_internal_flags * gfc, unsigned int val, int j)
 {
     EncStateVar_t const *const esv = &gfc->sv_enc;
     Bit_stream_struc *bs;
@@ -185,7 +185,7 @@ putbits2(lame_internal_flags * gfc, int val, int j)
 
 /*write j bits into the bit stream, ignoring frame headers */
 inline static void
-putbits_noheaders(lame_internal_flags * gfc, int val, int j)
+putbits_noheaders(lame_internal_flags * gfc, unsigned int val, int j)
 {
     Bit_stream_struc *bs;
     bs = &gfc->bs;
@@ -267,7 +267,7 @@ drain_into_ancillary(lame_internal_flags * gfc, int remainingBits)
 
 /*write N bits into the header */
 inline static void
-writeheader(lame_internal_flags * gfc, int val, int j)
+writeheader(lame_internal_flags * gfc, unsigned int val, int j)
 {
     EncStateVar_t *const esv = &gfc->sv_enc;
     int     ptr = esv->header[esv->h_ptr].ptr;
@@ -1093,19 +1093,24 @@ copy_buffer(lame_internal_flags * gfc, unsigned char *buffer, int size, int mp3d
 }
 
 
-void
+int
 init_bit_stream_w(lame_internal_flags * gfc)
 {
     EncStateVar_t *const esv = &gfc->sv_enc;
 
+    if (gfc->bs.buf == NULL) {
+        gfc->bs.buf = lame_calloc(unsigned char, BUFFER_SIZE);
+        if (gfc->bs.buf == NULL)
+            return -2;
+    }
     esv->h_ptr = esv->w_ptr = 0;
     esv->header[esv->h_ptr].write_timing = 0;
 
-    gfc->bs.buf = lame_calloc(unsigned char, BUFFER_SIZE);
     gfc->bs.buf_size = BUFFER_SIZE;
     gfc->bs.buf_byte_idx = -1;
     gfc->bs.buf_bit_idx = 0;
     gfc->bs.totbit = 0;
+    return 0;
 }
 
 /* end of bitstream.c */
