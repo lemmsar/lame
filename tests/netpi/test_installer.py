@@ -2,11 +2,10 @@
 
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
-
+from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[2]
 

@@ -4,9 +4,9 @@
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[1]
 BASE = "upstream/lame-4.0"

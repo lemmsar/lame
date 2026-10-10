@@ -5,12 +5,11 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
-
+from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parents[1]
 UPSTREAM_SHA256 = "3df5124d5ad3a98312ffd7ba6a9b36230e4f8a3e66d3ce0f425e336c32d216eb"
@@ -50,9 +49,11 @@ def check(library):
             sys.executable,
             "-I",
             "-c",
-            "import ctypes,sys; lib=ctypes.CDLL(sys.argv[1]); "
-            "lib.get_lame_version.restype=ctypes.c_char_p; "
-            "sys.exit(0 if lib.get_lame_version()==b'4.0' else 1)",
+            (
+                "import ctypes,sys; lib=ctypes.CDLL(sys.argv[1]); "
+                "lib.get_lame_version.restype=ctypes.c_char_p; "
+                "sys.exit(0 if lib.get_lame_version()==b'4.0' else 1)"
+            ),
             str(library),
         ],
         check=True,
@@ -220,14 +221,20 @@ def main():
             current = library.resolve(strict=True)
             manifest = json.loads((current.parent / "manifest.json").read_text())
             if not isinstance(manifest, dict):
-                raise ValueError("invalid build manifest")
+                raise TypeError("invalid build manifest")
             if manifest.get("build_id") == build_id and manifest.get(
                 "binary_sha256"
             ) == digest(current):
                 check(current)
                 print("LAME build already verified: " + build_id)
                 return
-        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+        except (
+            OSError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            subprocess.SubprocessError,
+        ):
             print("Existing build cannot be reused; rebuilding", file=sys.stderr)
     with tempfile.TemporaryDirectory(prefix="lame-netpi-build-") as temporary:
         build = Path(temporary)
@@ -312,6 +319,15 @@ def main():
                 raise RuntimeError(
                     "source changed during the build; rerun with a stable source tree"
                 )
+            if any(
+                digest(track) != expected["sha256"]
+                for track, expected in zip(
+                    corpus, specification["training"], strict=True
+                )
+            ):
+                raise RuntimeError(
+                    "training audio changed during the build; rerun with a stable corpus"
+                )
             binary_hash = digest(built)
             destination = args.prefix / "builds" / (build_id + "-" + binary_hash)
             manifest = {
@@ -359,6 +375,7 @@ def main():
                         [*privilege, "mv", "-T", str(staging), str(destination)],
                         capture_output=True,
                         text=True,
+                        check=False,
                     )
                     if promoted.returncode and not destination.is_dir():
                         raise RuntimeError("cannot publish build: " + promoted.stderr)
@@ -376,13 +393,13 @@ def main():
             if recorded != manifest:
                 # A verified matching binary can safely retain its path while
                 # missing/corrupt metadata is repaired with an atomic file swap.
-                pending_manifest = destination / (".manifest.%d.json" % os.getpid())
+                pending_manifest = destination / f".manifest.{os.getpid()}.json"
                 install(
                     "install", "-m", "0644", build / "manifest.json", pending_manifest
                 )
                 install("mv", "-fT", pending_manifest, destination / "manifest.json")
             check(installed)
-            link = library.parent / (".libmp3lame.so.0.%d" % os.getpid())
+            link = library.parent / f".libmp3lame.so.0.{os.getpid()}"
             install("ln", "-s", os.path.relpath(installed, library.parent), link)
             install("mv", "-fT", link, library)
             print("Installed verified LAME 4.0: " + str(installed))
