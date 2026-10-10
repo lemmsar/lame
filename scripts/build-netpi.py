@@ -25,7 +25,7 @@ def source_digest():
     for path in sorted(SOURCE.rglob("*")):
         relative = path.relative_to(SOURCE)
         if any(
-            part in (".git", "autom4te.cache", "__pycache__", ".pytest_cache")
+            part in (".git", "autom4te.cache", "__pycache__", ".pytest_cache", ".ruff_cache")
             for part in relative.parts
         ) or relative.parts[0].startswith(("build", ".build")):
             continue
