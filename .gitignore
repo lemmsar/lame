@@ -1,0 +1,7 @@
+/build*/
+/.build*/
+__pycache__/
+*.pyc
+/.pytest_cache/
+autom4te.cache/
+*~

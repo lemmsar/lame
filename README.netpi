@@ -1,0 +1,115 @@
+NetPi LAME 4.0 maintenance fork
+==============================
+
+This repository starts with the unmodified LAME 4.0 release. It preserves the
+upstream API, version string and licenses. The NetPi changes are maintained in
+a separate pull request; this is not an official LAME release.
+
+Source: https://deb.debian.org/debian/pool/main/l/lame/lame_4.0.orig.tar.gz
+SHA-256: 3df5124d5ad3a98312ffd7ba6a9b36230e4f8a3e66d3ce0f425e336c32d216eb
+Read COPYING and LICENSE for upstream licensing. Upstream notices remain intact.
+
+Changes
+-------
+
+* Preserve per-band minimum scalefactors in VBR out-of-bits recovery (#490).
+* Disable the incompatible noise-shaping amplification in CBR/ABR (#516).
+* Save the selected quantization candidate's bit count in the older loops.
+* Honor --disable-ieeehack and the numeric value of its configuration macro.
+* Check allocation failures, unwind partial initialization, and support retry.
+* Allocate the internal ReplayGain state only when it is requested.
+* Resample whenever input/output rates differ, including differences of 1 Hz.
+* Use unsigned bit operations where sanitizers found signed-shift undefined behavior.
+* Offer opt-in AArch64 NEON Huffman counting and explicit fast-log selection.
+* Build with recorded source/toolchain inputs, optional Cortex-A53/LTO/PGO
+  profiles, immutable library paths, and an atomic active-library symlink.
+
+Relevant upstream reports and implementation:
+https://sourceforge.net/p/lame/bugs/490/
+https://sourceforge.net/p/lame/bugs/516/
+https://sourceforge.net/p/lame/patches/101/
+https://svn.code.sf.net/p/lame/svn/trunk/lame/doc/html/history.html
+The NEON file preserves its upstream r7051 attribution and license notice.
+
+Build for NetPi
+---------------
+
+Dependencies: GCC, make, Python >= 3.11, FFmpeg, standard GNU install/coreutils.
+Build and install locally on the target; the installer executes the new library.
+
+  python3 scripts/build-netpi.py
+  python3 scripts/build-netpi.py --check
+  python3 scripts/build-netpi.py --force
+
+Default prefix: /opt/netpi/lame-4.0. Building runs as the invoking user; sudo is
+used only for installation if that prefix is not writable. --prefix can select
+an absolute writable location outside the source tree. It cannot contain spaces
+or colons because the dynamic loader interprets those as LD_PRELOAD separators.
+
+The active lib/libmp3lame.so.0 is a symlink to builds/<input-id>-<binary-sha256>/.
+Each build retains manifest.json, config.log and configure/build output. A
+changed source tree, compiler, flags, profile or training corpus rebuilds it.
+--force rebuilds even when those inputs match. Existing build files remain in
+place so already-admitted jobs can use their resolved paths during an upgrade.
+Do not overwrite files inside builds/ manually. The system LAME is untouched.
+
+Experimental profiles (compare one change at a time on the actual Pi):
+
+  python3 scripts/build-netpi.py --profile cortex-a53
+  python3 scripts/build-netpi.py --lto
+  python3 scripts/build-netpi.py --neon
+  python3 scripts/build-netpi.py --fast-log yes
+  python3 scripts/build-netpi.py --fp-model strict
+  python3 scripts/build-netpi.py --pgo-corpus /path/to/representative-lossless-music
+
+The Cortex-A53 profile requires an AArch64 compiler and native execution. NEON
+is off by default; enabling it on unsupported architectures fails explicitly.
+PGO trains both mono and stereo V0 on WAV/FLAC files, then rebuilds in the same
+build directory with profiles outside make-clean directories. Only use music
+you are entitled to use; training audio is not uploaded or installed. The
+manifest records relative corpus names and hashes. LTO/PGO target GCC.
+
+The generic build explicitly preserves upstream's -O3 and fast-math defaults.
+CPPFLAGS/CFLAGS/LDFLAGS and toolchain settings are recorded. Profile and floating
+point options are appended after user CFLAGS so the named profile is accurate.
+--ieee-hack retains the historical path for comparisons. The corrected default
+and CBR/ABR fixes may change encoded bytes; no listening-quality gain is claimed.
+
+Validation
+----------
+
+  mkdir /tmp/lame-test-build
+  cd /tmp/lame-test-build
+  /path/to/lame/configure --disable-frontend --disable-decoder --disable-nasm \
+    --enable-shared --enable-static --disable-neon --disable-ieeehack
+  make -j2
+  bash /path/to/lame/tests/netpi/run-tests.sh /tmp/lame-test-build
+
+The suite injects allocation failures, checks cleanup and retry output, verifies
+resampling duration, tests VBR/CBR/ABR over mono/stereo and multiple rates, checks
+VBR scalefactor bounds, and compares NEON/scalar integer bit counts. CI also
+decodes generated MP3s, runs ASan/UBSan, executes AArch64 builds under QEMU and
+compares complete scalar/NEON streams. tests/netpi/test_installer.py exercises
+real installation, reuse, force rebuilding, changed flags, LTO and PGO.
+
+QEMU validates execution and output; it does not measure Raspberry Pi speed.
+Native Pi timing, thermal behavior and level-matched ABX listening remain target
+validation tasks. No measured ARM speedup or audible improvement is asserted.
+Compare CPU time, total conversion time, RSS and temperature with the same music.
+Quantization, fast-log and floating-point changes need listening checks; byte
+differences alone neither demonstrate improvement nor demonstrate degradation.
+
+Scope
+-----
+
+NetPi uses FFmpeg planar PCM, V0 and separate rsgain analysis. Its build/loader
+changes are a companion PR in lemmsar/netpi. That PR vendors a checksum-verified
+patch against the public release so devices need no access token for this fork.
+
+V0 and Joint Stereo presets are unchanged. No speculative psychoacoustic tuning
+or frame-level parallelization is introduced. For batch throughput, compare
+NetPi's existing worker setting at 1 and 2 under actual playback/thermal load.
+Global quantization tables still have legacy initialization shared within a
+process. This fork does not promise thread-safe concurrent instance setup;
+NetPi's per-file FFmpeg processes do not share that state. Replacing all those
+tables or rewriting FFT kernels requires separate profiling and numeric review.

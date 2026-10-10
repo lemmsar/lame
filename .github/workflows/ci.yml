@@ -1,0 +1,79 @@
+name: Encoder validation
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [native, ieee, sanitizer]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: sudo apt-get update && sudo apt-get install -y build-essential ffmpeg
+      - name: Build and run regression tests
+        shell: bash
+        env:
+          MODE: ${{ matrix.mode }}
+        run: |
+          mkdir "$RUNNER_TEMP/build" "$RUNNER_TEMP/mp3"
+          export CFLAGS='-O3 -ffast-math'
+          export LDFLAGS=''
+          option=--disable-ieeehack
+          if [[ "$MODE" == ieee ]]; then option=--enable-ieeehack; fi
+          if [[ "$MODE" == sanitizer ]]; then
+            export CFLAGS='-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-pie'
+            export LDFLAGS='-fsanitize=address,undefined -no-pie'
+            export ASAN_OPTIONS=detect_leaks=1
+            export UBSAN_OPTIONS=halt_on_error=1
+          fi
+          cd "$RUNNER_TEMP/build"
+          "$GITHUB_WORKSPACE/configure" --disable-frontend --disable-decoder --disable-nasm \
+            --enable-static --enable-shared --disable-neon "$option"
+          make -j2
+          cd "$GITHUB_WORKSPACE"
+          NETPI_ENCODING_OUTPUT_DIR="$RUNNER_TEMP/mp3" bash tests/netpi/run-tests.sh "$RUNNER_TEMP/build"
+          for file in "$RUNNER_TEMP"/mp3/*.mp3; do
+            ffmpeg -v error -xerror -i "$file" -f null -
+          done
+  arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-aarch64-linux-gnu libc6-dev-arm64-cross qemu-user
+      - name: Execute AArch64 scalar and NEON regressions
+        shell: bash
+        run: |
+          export CC=aarch64-linux-gnu-gcc
+          export CFLAGS='-O3 -ffast-math -mcpu=cortex-a53'
+          export NETPI_TEST_RUNNER=qemu-aarch64
+          export QEMU_LD_PREFIX=/usr/aarch64-linux-gnu
+          for neon in no yes; do
+            mkdir "$RUNNER_TEMP/arm-$neon"
+            cd "$RUNNER_TEMP/arm-$neon"
+            "$GITHUB_WORKSPACE/configure" --host=aarch64-linux-gnu --disable-frontend \
+              --disable-decoder --disable-nasm --enable-static --enable-shared \
+              --disable-ieeehack --enable-neon="$neon"
+            make -j2
+            cd "$GITHUB_WORKSPACE"
+            NETPI_ENCODING_OUTPUT_DIR="$RUNNER_TEMP/mp3-$neon" \
+              bash tests/netpi/run-tests.sh "$RUNNER_TEMP/arm-$neon"
+          done
+          diff -rq "$RUNNER_TEMP/mp3-no" "$RUNNER_TEMP/mp3-yes"
+  installer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: sudo apt-get update && sudo apt-get install -y build-essential ffmpeg python3
+      - name: Verify installation identity and optional LTO/PGO builds
+        run: python3 tests/netpi/test_installer.py
