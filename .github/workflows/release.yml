@@ -1,0 +1,93 @@
+name: Native binary release
+on:
+  pull_request:
+  push:
+    tags: ['v4.0-r*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  binaries:
+    name: Debian 13 ${{ matrix.architecture }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86_64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    container:
+      # Official GCC 16.2, Debian 13, multi-architecture manifest.
+      image: gcc:16.2-trixie@sha256:17043c23ec2ad97fc3beca18da77275d26be5db5cd70ea0a5d73200e21a8e999
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Prepare pinned compiler candidates
+        run: bash scripts/prepare-release-toolchains.sh
+      - name: Validate packaging rules
+        run: python3 tests/netpi/test_release_package.py
+      - name: Build, compare and validate extracted binaries
+        run: bash scripts/build-release.sh "$RUNNER_TEMP/compiler-builds" "$RUNNER_TEMP/release-output"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ matrix.architecture }}
+          path: |
+            ${{ runner.temp }}/release-output/*.tar.gz
+            ${{ runner.temp }}/release-output/*.json
+            ${{ runner.temp }}/release-output/*.txt
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: compiler-logs-${{ matrix.architecture }}
+          path: |
+            ${{ runner.temp }}/compiler-builds/*.log
+            ${{ runner.temp }}/release-output/*-logs/*.log
+            ${{ runner.temp }}/release-output/benchmark-*.json
+          if-no-files-found: ignore
+          retention-days: 7
+  publish:
+    name: Publish verified prerelease
+    if: startsWith(github.ref, 'refs/tags/v4.0-r') && github.event_name == 'push'
+    needs: binaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-*
+          path: release-output
+          merge-multiple: true
+      - name: Assemble corresponding source and checksums
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          test "$RELEASE_TAG" = "v$(cat RELEASE_VERSION)"
+          git merge-base --is-ancestor HEAD origin/main
+          python3 scripts/assemble-release.py release-output
+      - name: Attach every asset before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            echo 'This release already exists. Use a new revision; assets are never replaced.' >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" release-output/* --verify-tag --draft --prerelease \
+            --title "LAME 4.0 — lemmsar revision ${RELEASE_TAG##*-r}" --notes-file RELEASE_NOTES.md
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false

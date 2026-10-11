@@ -14,6 +14,7 @@ CLEANFILES = testcase.new.mp3
 
 EXTRA_DIST = \
 	.github/workflows/ci.yml \
+	.github/workflows/release.yml \
 	API \
 	CONTRIBUTING.md \
 	DEFINES \
@@ -26,10 +27,14 @@ EXTRA_DIST = \
 	README.WINGTK \
 	README.md \
 	README.netpi \
+	RELEASE_VERSION \
+	RELEASE_NOTES.md \
+	RELEASING.md \
 	STYLEGUIDE \
 	USAGE \
 	configMS.h \
 	debian \
+	doc/COMPILER_BENCHMARKS.md \
 	doc/upstream/README \
 	doc/upstream/HACKING \
 	doc/upstream/LICENSE \
@@ -37,6 +42,11 @@ EXTRA_DIST = \
 	lame.spec.in \
 	lame.spec \
 	scripts/build-netpi.py \
+	scripts/build-release.sh \
+	scripts/prepare-release-toolchains.sh \
+	scripts/benchmark-compilers.py \
+	scripts/package-release.py \
+	scripts/assemble-release.py \
 	scripts/export-netpi-patch.py \
 	tests/netpi/run-tests.sh \
 	tests/netpi/run-encoding-tests.sh \
@@ -45,6 +55,7 @@ EXTRA_DIST = \
 	tests/netpi/test_encoding.c \
 	tests/netpi/test_frontend.py \
 	tests/netpi/test_installer.py \
+	tests/netpi/test_release_package.py \
 	tests/netpi/test_neon.c \
 	tests/netpi/test_resampler.c \
 	tests/netpi/test_vbr_quantize.c \

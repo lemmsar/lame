@@ -39,6 +39,14 @@ audible quality improvement.
 
 ## Build the library and command line encoder
 
+Debian 13 binary releases use separate fork revisions (`v4.0-r1`, `v4.0-r2`,
+and so on) while preserving the library API version `4.0`. ARM64 and x86_64
+archives include the CLI, shared library, license notices and build manifest;
+the same release provides complete corresponding source and checksums. See
+[RELEASING.md](RELEASING.md) for compiler comparisons, compatibility and release
+validation. Initial releases remain prereleases until Raspberry Pi checks are
+recorded.
+
 The checked-in `configure` script supports an ordinary Autotools build. A C
 compiler and make are required. This example omits the optional decoder and
 NASM assembler dependency:
@@ -69,6 +77,9 @@ ordinary source build does not require that installer.
 retry tests, ASan/UBSan, and FFmpeg decoding checks. AArch64 tests run under QEMU;
 scalar and NEON bit counts and complete encoded streams are compared. Installer
 tests exercise build identity, reuse, recovery, force rebuilds, LTO and PGO.
+The [binary workflow](.github/workflows/release.yml) also builds and measures
+compiler candidates on native x86_64 and ARM64 runners in Debian 13 containers,
+then tests the extracted distribution through its CLI and FFmpeg.
 
 Native Raspberry Pi throughput, temperature, playback interference and
 level-matched ABX listening remain separate target-device validation tasks.
@@ -85,6 +96,7 @@ account for the shared initialization state.
 ## Documentation and contributions
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): development, tests, generated files and patches.
+- [RELEASING.md](RELEASING.md): binary packaging, compiler selection and revision tags.
 - [README.netpi](README.netpi): Linux private-library installation and profiles.
 - [HACKING](HACKING): encoder layout, state ownership and initialization constraints.
 - [include/lame.h](include/lame.h): public encoder API.

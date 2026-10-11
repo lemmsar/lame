@@ -1,5 +1,6 @@
 /build*/
 /.build*/
+/release-output/
 __pycache__/
 *.pyc
 /.pytest_cache/
