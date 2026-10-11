@@ -56,6 +56,7 @@ EXTRA_DIST = \
 	tests/netpi/test_frontend.py \
 	tests/netpi/test_installer.py \
 	tests/netpi/test_release_package.py \
+	tests/netpi/test_release_assembly.py \
 	tests/netpi/test_neon.c \
 	tests/netpi/test_resampler.c \
 	tests/netpi/test_vbr_quantize.c \

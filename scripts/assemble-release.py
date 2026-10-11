@@ -14,9 +14,20 @@ import tempfile
 from pathlib import Path
 
 
-def main():
-    source = Path(__file__).resolve().parents[1]
-    output = Path(sys.argv[1]).resolve()
+def verify_selection(manifest, report):
+    selected = next(candidate for candidate in report["candidates"]
+                    if candidate["name"] == report["recommended_candidate"])
+    # Autoconf may prepend a space when its default optimization flags are empty.
+    toolchain = {key: selected[key].strip() for key in ("compiler", "cflags", "ldflags")}
+    if (not selected["validation_passed"] or manifest["toolchain"] != toolchain
+            or manifest["build_inputs"] != {
+                "executable_sha256": selected["binary_sha256"],
+                "library_sha256": selected["library_sha256"],
+            }):
+        raise ValueError("Packaged encoder differs from the benchmark selection")
+
+
+def assemble(source, output):
     version = (source / "RELEASE_VERSION").read_text().strip()
     if not re.fullmatch(r"4\.0-r[1-9][0-9]*", version):
         raise ValueError("Invalid release version")
@@ -48,15 +59,7 @@ def main():
         if (report["source"]["commit"] != commit or report["source"]["dirty"]
                 or report.get("status") != "passed" or not report.get("recommended_candidate")):
             raise ValueError(f"Benchmark/source identity mismatch: {name}")
-        selected = next(candidate for candidate in report["candidates"]
-                        if candidate["name"] == report["recommended_candidate"])
-        if (not selected["validation_passed"]
-                or manifest["toolchain"] != {key: selected[key] for key in ("compiler", "cflags", "ldflags")}
-                or manifest["build_inputs"] != {
-                    "executable_sha256": selected["binary_sha256"],
-                    "library_sha256": selected["library_sha256"],
-                }):
-            raise ValueError(f"Packaged encoder differs from the benchmark selection: {name}")
+        verify_selection(manifest, report)
         with tempfile.TemporaryDirectory(prefix="lame-release-final-") as temporary:
             root = packager.extract_archive(archive, Path(temporary), name.removesuffix(".tar.gz"))
             packager.verify_files(root, manifest)
@@ -85,4 +88,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    assemble(Path(__file__).resolve().parents[1], Path(sys.argv[1]).resolve())

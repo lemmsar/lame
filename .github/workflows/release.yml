@@ -35,7 +35,9 @@ jobs:
       - name: Prepare pinned compiler candidates
         run: bash scripts/prepare-release-toolchains.sh
       - name: Validate packaging rules
-        run: python3 tests/netpi/test_release_package.py
+        run: |
+          python3 tests/netpi/test_release_package.py
+          python3 tests/netpi/test_release_assembly.py
       - name: Build, compare and validate extracted binaries
         run: bash scripts/build-release.sh "$RUNNER_TEMP/compiler-builds" "$RUNNER_TEMP/release-output"
       - name: Stage complete artifacts in the workspace
