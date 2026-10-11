@@ -61,6 +61,16 @@ python3 tests/netpi/test_installer.py
 The installer test uses a temporary writable prefix. It compiles several
 variants, checks reused and replaced installations, and runs LTO/PGO builds.
 
+For a command line encoder built with the [README](README.md) instructions,
+check Unicode tags and decoding with:
+
+```sh
+python3 tests/netpi/test_frontend.py /path/to/build/frontend/lame
+```
+
+This test requires FFmpeg and FFprobe. The distribution CI job runs it against
+the executable built from the extracted source archive.
+
 ## Sanitizers and ARM64
 
 Use a separate build directory for each configuration. For the sanitizer

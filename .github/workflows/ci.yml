@@ -87,7 +87,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - run: sudo apt-get update && sudo apt-get install -y build-essential python3
+      - run: sudo apt-get update && sudo apt-get install -y build-essential ffmpeg python3
       - name: Build and test the source distribution
         shell: bash
         run: |
@@ -104,6 +104,7 @@ jobs:
           test ! -e "$source_dir/mac/.DS_Store"
           python3 "$source_dir/tests/netpi/test_build_profiles.py"
           cd "$RUNNER_TEMP/build"
-          "$source_dir/configure" --disable-frontend --disable-decoder --disable-nasm \
+          "$source_dir/configure" --disable-decoder --disable-nasm \
             --enable-static --enable-shared --disable-neon --disable-ieeehack
           make -j2 check-netpi
+          python3 "$source_dir/tests/netpi/test_frontend.py" "$RUNNER_TEMP/build/frontend/lame"

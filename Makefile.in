@@ -411,6 +411,7 @@ EXTRA_DIST = \
 	tests/netpi/test_allocations.c \
 	tests/netpi/test_build_profiles.py \
 	tests/netpi/test_encoding.c \
+	tests/netpi/test_frontend.py \
 	tests/netpi/test_installer.py \
 	tests/netpi/test_neon.c \
 	tests/netpi/test_resampler.c \

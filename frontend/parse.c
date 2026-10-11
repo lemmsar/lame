@@ -4,6 +4,9 @@
  *      Copyright (c) 1999 Mark Taylor
  *                    2000-2017 Robert Hegemann
  *
+ *      Modified by lemmsar/lame, 2026-10-11: route CLI Unicode tags to
+ *      the matching UTF-8 and UTF-16 APIs.
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either
@@ -403,39 +406,51 @@ static int getIntValue(char const* token, char const* arg, int* ptr)
 
 #ifdef ID3TAGS_EXTENDED
 static int
-set_id3v2tag(lame_global_flags* gfp, TextEncoding enc, int type, unsigned short const* str)
+set_id3v2tag(lame_global_flags* gfp, TextEncoding enc, int type, void const* text)
 {
     switch (enc)
     {
         case TENC_UTF8:
+        {
+            char const* str = text;
             switch (type)
             {
                 case 'a': return id3tag_set_textinfo_utf8(gfp, "TPE1", str);
                 case 't': return id3tag_set_textinfo_utf8(gfp, "TIT2", str);
                 case 'l': return id3tag_set_textinfo_utf8(gfp, "TALB", str);
                 case 'g': return id3tag_set_textinfo_utf8(gfp, "TCON", str);
-                case 'c': return id3tag_set_comment_ucs2(gfp, 0, 0, str);
+                case 'c': return id3tag_set_comment_utf8(gfp, 0, 0, str);
                 case 'n': return id3tag_set_textinfo_utf8(gfp, "TRCK", str);
                 case 'y': return id3tag_set_textinfo_utf8(gfp, "TYER", str);
-                case 'v': return id3tag_set_fieldvalue_ucs2(gfp, str);
+                case 'v':
+                    if (str == 0 || strlen(str) < 5 || str[4] != '=') {
+                        return -1;
+                    }
+                    return id3tag_set_textinfo_utf8(gfp, str, str + 5);
             }
-            ;;
+            break;
+        }
         case TENC_UTF16:
+        {
+            unsigned short const* str = text;
+            /* Even an empty UTF-16 comment description needs a byte order marker. */
+            unsigned short const empty_desc[] = {0xfeff, 0};
             switch (type)
             {
                 case 'a': return id3tag_set_textinfo_utf16(gfp, "TPE1", str);
                 case 't': return id3tag_set_textinfo_utf16(gfp, "TIT2", str);
                 case 'l': return id3tag_set_textinfo_utf16(gfp, "TALB", str);
                 case 'g': return id3tag_set_textinfo_utf16(gfp, "TCON", str);
-                case 'c': return id3tag_set_comment_utf16(gfp, 0, 0, str);
+                case 'c': return id3tag_set_comment_utf16(gfp, 0, empty_desc, str);
                 case 'n': return id3tag_set_textinfo_utf16(gfp, "TRCK", str);
                 case 'y': return id3tag_set_textinfo_utf16(gfp, "TYER", str);
                 case 'v': return id3tag_set_fieldvalue_utf16(gfp, str);
             }
-            ;;
-        default:
-            return -3;
+            break;
+        }
+        default: break;
     }
+    return -3;
 }
 #endif
 
