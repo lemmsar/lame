@@ -68,8 +68,10 @@ check Unicode tags and decoding with:
 python3 tests/netpi/test_frontend.py /path/to/build/frontend/lame
 ```
 
-This test requires FFmpeg and FFprobe. The distribution CI job runs it against
-the executable built from the extracted source archive.
+This test requires FFmpeg and FFprobe. It also checks 8/16/24/32-bit WAV and
+signed raw input by decoding the result and comparing the waveform. Native CI
+runs it with and without sanitizers; distribution CI runs it against the
+executable built from the extracted source archive.
 
 ## Sanitizers and ARM64
 

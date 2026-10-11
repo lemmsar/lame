@@ -26,6 +26,7 @@ upstream release, while the instructions here describe this fork.
 | VBR recovery | Preserve each band's minimum scalefactor when a frame runs out of bits | [Bug #490](https://sourceforge.net/p/lame/bugs/490/) |
 | CBR/ABR | Disable incompatible amplified noise shaping in these modes | [Bug #516](https://sourceforge.net/p/lame/bugs/516/) |
 | Command line tags | Use the matching UTF-8 and UTF-16 APIs for Unicode metadata | CLI encoding and metadata regressions in [tests/netpi](tests/netpi) |
+| PCM input | Avoid signed-shift overflow when unpacking WAV and raw samples | 8/16/24/32-bit input and decoded waveform regressions in [tests/netpi](tests/netpi) |
 | Resampling | Resample whenever the integer sample rates differ | [Patch #101](https://sourceforge.net/p/lame/patches/101/) |
 | ARM64 | Add optional NEON Huffman bit counting | [Upstream source at SVN r7051](https://svn.code.sf.net/p/lame/svn/!svn/bc/7051/trunk/lame/libmp3lame/vector/neon_choose_table.c) |
 | Reliability | Propagate allocation errors, clean up partial initialization, support retry, and remove undefined signed shifts | Regression tests in [tests/netpi](tests/netpi) |

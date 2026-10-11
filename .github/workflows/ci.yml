@@ -19,7 +19,7 @@ jobs:
         mode: [native, ieee, sanitizer]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - run: sudo apt-get update && sudo apt-get install -y build-essential ffmpeg
+      - run: sudo apt-get update && sudo apt-get install -y build-essential ffmpeg python3
       - name: Build and run regression tests
         shell: bash
         env:
@@ -37,11 +37,12 @@ jobs:
             export UBSAN_OPTIONS=halt_on_error=1
           fi
           cd "$RUNNER_TEMP/build"
-          "$GITHUB_WORKSPACE/configure" --disable-frontend --disable-decoder --disable-nasm \
+          "$GITHUB_WORKSPACE/configure" --disable-decoder --disable-nasm \
             --enable-static --enable-shared --disable-neon "$option"
           make -j2
           cd "$GITHUB_WORKSPACE"
           NETPI_ENCODING_OUTPUT_DIR="$RUNNER_TEMP/mp3" bash tests/netpi/run-tests.sh "$RUNNER_TEMP/build"
+          python3 tests/netpi/test_frontend.py "$RUNNER_TEMP/build/frontend/lame"
           for file in "$RUNNER_TEMP"/mp3/*.mp3; do
             ffmpeg -v error -xerror -i "$file" -f null -
           done
