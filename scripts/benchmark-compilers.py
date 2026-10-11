@@ -58,9 +58,17 @@ def source_identity():
             for path in SOURCE.rglob("*")
             if path.is_file()
             and not any(
-                part.startswith((".", "build")) or part == "__pycache__"
+                part
+                in (
+                    ".git",
+                    "autom4te.cache",
+                    "__pycache__",
+                    ".pytest_cache",
+                    ".ruff_cache",
+                )
                 for part in path.relative_to(SOURCE).parts
             )
+            and not path.relative_to(SOURCE).parts[0].startswith(("build", ".build"))
         ]
         commit, dirty = None, None
     checksum = hashlib.sha256()

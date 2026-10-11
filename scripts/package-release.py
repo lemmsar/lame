@@ -323,6 +323,13 @@ def package(build, source, version, output):
             check_elf(path, target["architecture"])
         run(["patchelf", "--set-rpath", "$ORIGIN/../lib", str(root / EXECUTABLE)])
         run(["patchelf", "--remove-rpath", str(root / LIBRARY)])
+        for executable, allowed in (
+            (EXECUTABLE, {"libmp3lame.so.0", "libm.so.6", "libc.so.6"}),
+            (LIBRARY, {"libm.so.6", "libc.so.6"}),
+        ):
+            needed = set(run(["patchelf", "--print-needed", str(root / executable)]).splitlines())
+            if not needed <= allowed:
+                raise ValueError(f"unexpected runtime dependencies in {executable}: {needed - allowed}")
         if (
             run(["patchelf", "--print-rpath", str(root / EXECUTABLE)])
             != "$ORIGIN/../lib"

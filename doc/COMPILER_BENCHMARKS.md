@@ -39,7 +39,8 @@ benchmark expects both shared and static libraries and the CLI frontend:
 CC=gcc-14 \
 CFLAGS='-O3 -ffast-math -fomit-frame-pointer -std=gnu11 -march=x86-64' \
 /path/to/lame/configure --disable-decoder --disable-nasm \
-  --enable-static --enable-shared --disable-neon --disable-ieeehack
+  --enable-static --enable-shared --enable-dynamic-frontends \
+  --disable-neon --disable-ieeehack
 make -j2
 ```
 

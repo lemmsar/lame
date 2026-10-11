@@ -20,6 +20,10 @@ mkdir -p "$work_dir" "$output_dir"
 export SOURCE_DATE_EPOCH
 SOURCE_DATE_EPOCH="$(git -C "$source_dir" log -1 --format=%ct)"
 export LC_ALL=C TZ=UTC
+# Libtool forwards -fuse-ld but drops Clang's newer --ld-path option.
+export PATH="/opt/llvm-23/bin:$PATH"
+# The CLI must run on minimal Debian installations without terminal libraries.
+export ac_cv_lib_termcap_initscr=no ac_cv_lib_curses_initscr=no ac_cv_lib_ncurses_initscr=no
 candidates=()
 for candidate in gcc14 gcc16 gcc16-lto clang19-lto clang23 clang23-lto; do
     case "$candidate" in
@@ -40,7 +44,7 @@ for candidate in gcc14 gcc16 gcc16-lto clang19-lto clang23 clang23-lto; do
                 LDFLAGS+=' -fuse-ld=lld-19'
                 AR=llvm-ar-19 RANLIB=llvm-ranlib-19 NM=llvm-nm-19
             else
-                LDFLAGS+=' --ld-path=/opt/llvm-23/bin/ld.lld'
+                LDFLAGS+=' -fuse-ld=lld'
                 AR=/opt/llvm-23/bin/llvm-ar RANLIB=/opt/llvm-23/bin/llvm-ranlib NM=/opt/llvm-23/bin/llvm-nm
             fi
         else
