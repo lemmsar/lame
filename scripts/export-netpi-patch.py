@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-2.0-or-later
 """Export the committed fork delta for NetPi's authenticated-free device builds."""
 
 import argparse

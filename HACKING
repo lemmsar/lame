@@ -1,121 +1,58 @@
-First, see the file STYLEGUIDE
+NetPi maintenance notes -- updated 2026-10-11
+===========================================
 
-************************************************************************
-TESTING
-=======
+Start with CONTRIBUTING.md for current build, test and regeneration commands.
+STYLEGUIDE contains the inherited C conventions. The upstream HACKING document
+is preserved verbatim in doc/upstream/HACKING as historical reference.
 
-If you make changes, please test.  There is a python script in the test/ 
-directory which will compare two versions of lame using a bunch of CBR 
-and ABR options. To run this script, copy your favorite (and short!) wav 
-file to the lame/test directory, and run:
+Encoder layout
+--------------
 
-% cd lame/test
-% ./lametest.py [-w]  CBRABR.op castanets.wav lame_orig lame_new
+include/lame.h is the public API. Public settings are handled in
+libmp3lame/set_get.c. libmp3lame/lame.c validates and initializes a session,
+converts input PCM, manages buffers and calls lame_encode_mp3_frame().
+libmp3lame/encoder.c coordinates the psychoacoustic analysis, MDCT,
+quantization and bitstream output. The corresponding implementations live in
+psymodel.c, newmdct.c, quantize.c, vbrquantize.c and bitstream.c.
+frontend/ contains the command line front end; changing an internal function
+does not automatically require a new public API option.
 
+State and allocation ownership
+------------------------------
 
+lame_global_flags holds public settings and refers to lame_internal_flags,
+which holds the session's working state. Preserve that separation when adding
+an option. A caller must successfully complete lame_init_params() before
+encoding. Check all allocation results and propagate errors to the public
+entry point instead of relying on assertions for out-of-memory handling.
 
-************************************************************************
-LAME API
-========
+Initialization failure must leave the object safe to close and retry.
+free_init_data() unwinds derived initialization resources; freegfc() releases
+the complete internal state. Resampler tables are prepared during session
+initialization before PCM or output bytes are consumed. ReplayGain storage is
+allocated only when the feature is requested. New resources need a matching
+cleanup path and allocation-failure regression coverage.
 
-For a general outline of the code, see the file API.  
-Also, frontend/main.c is a simple front end to libmp3lame.a
+Concurrency
+-----------
 
-The guts of the code are called from lame_encode_buffer().
+Separate sessions still share legacy quantization and log-table initialization
+within a process. This fork does not guarantee concurrent instance setup is
+thread-safe. A lock around only lame_init() is insufficient: setup also occurs
+in lame_init_params(), and table writes must not race with another encoder
+using those tables. NetPi uses separate FFmpeg processes per conversion.
 
-lame_encode_buffer() handles buffering and resampling, and
-then calls lame_encode_frame() for each frame.  lame_encode_frame()
-looks like this:
+Avoid introducing new writable global state. Changing existing shared tables
+requires a separate concurrency design and floating-point equivalence tests.
 
-lame_encode_frame_mp3():
-   l3psycho_anal()        compute masking thresholds
-   mdct_sub()             compute MDCT coefficients
-   iteration_loop()       choose scalefactors (via iteration)
-                          which determine noise shapping, and 
-                          choose best huffman tables for lossless compression
-   format_bitstream       format the bitstream.  when data+headers are complete,
-                          output to internal bit buffer.
-   copy_buffer()          copy internal bit buffer into user's mp3 buffer
+Validation
+----------
 
-************************************************************************
-ADDING NEW OPTIONS
-==================
+Use the fork regression commands in CONTRIBUTING.md. The historical upstream
+make test target compares an encoded fixture with a reference byte stream; it
+is not a listening-quality test or the complete fork regression suite.
 
-control variable goes in lame_global_flags struct.
-Assume the variable is called 'new_variable'.
-
-You also need to write (in set_get.c):
-
-lame_set_new_variable()
-lame_get_new_variable()
-
-And then document the variable in the file USAGE as well as the
-output of "lame --longhelp"
-
-And add a "--option" style command line option to enable this variable
-in parse.c
-
-Note: for experimental features that you need to call from the frontend
-but that should not be part of the official API, see the section at
-the end of set_get.c.  These functions should *NOT* be prototyped in
-lame.h (since that would indicate to the world that they are part
-of the API). 
-
-
-************************************************************************
-THREADSAFE:
-===========
-
-Lame should now be thread safe and re-entrant. The only problem seems to 
-be some OS's allocate small stacks (< 128K) to threads launched by 
-applications, and this is not enough for LAME.  Fix is to increase the 
-stack space, or move some of our automatic variables onto the heap with
-by using bug-proof malloc()'s and free().
-
-
-************************************************************************
-Global Variables:
-=================
-
-There are two types of global variables.  All data in both structs is 
-initialized to zero.
-
-1. lame_global_flags *gfp
-
-These are input parameters which are set by the calling program, and some 
-information which the calling program may be interested in.
-
-This struct instantiated by the call to lame_init().  
-
-
-2. lame_internal_flags *gfc
-
-Most global variables go here.
-
-All internal data not set by the user.  All 'static' data from
-old non-reentrant code should be moved here.
-
-Defined in util.h.  Data for which the size is known
-in advance should be explicitly declaired (for example,
-float xr[576]);  Data which needs to be malloc'd is
-handled by:  
-
-1.  in lame_init_params(), malloc the data
-2.  be sure to free the data in freegfc()
-
-
-If the data to be malloc'd is large and only used in
-certain conditions (like resampling), use the following:  
-this has the disadvantage that it is hard to catch and return error
-flags all the way back up the call stack.
-
-1. Add an initialization variable to the gfc struct: lame_init_resample
-2. In the resample routine, there should be some code like this:
-
-   if (0==gfc->lame_init_resample) {
-       gfc->lame_init_resample=1;
-      /* initialization code: malloc() data, etc */
-   }
-
-3. The data should be free'd in the routine freegfc().
-
+Changes to psychoacoustic, quantization, resampling or floating-point code need
+representative audio testing as well as bounds, decode and sanitizer checks.
+Report actual device measurements separately from QEMU execution. Keep native
+CPU timing, temperature and listening results tied to the exact build and input.

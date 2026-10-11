@@ -1,10 +1,11 @@
 ## $Id$
+# Modified for the lemmsar/lame maintenance fork on 2026-10-11.
 
 include $(top_srcdir)/Makefile.am.global
 
 ACLOCAL_AMFLAGS=-I m4
 
-.PHONY: test
+.PHONY: test check-netpi
 
 SUBDIRS = mpglib libmp3lame frontend Dll doc include misc dshow ACM \
 	mac vc_solution
@@ -12,7 +13,9 @@ SUBDIRS = mpglib libmp3lame frontend Dll doc include misc dshow ACM \
 CLEANFILES = testcase.new.mp3
 
 EXTRA_DIST = \
+	.github/workflows/ci.yml \
 	API \
+	CONTRIBUTING.md \
 	DEFINES \
 	HACKING \
 	INSTALL.configure \
@@ -21,15 +24,36 @@ EXTRA_DIST = \
 	Makefile.unix \
 	Makefile.am.global \
 	README.WINGTK \
+	README.md \
+	README.netpi \
 	STYLEGUIDE \
 	USAGE \
 	configMS.h \
 	debian \
+	doc/upstream/README \
+	doc/upstream/HACKING \
+	doc/upstream/LICENSE \
 	lame.bat \
 	lame.spec.in \
 	lame.spec \
+	scripts/build-netpi.py \
+	scripts/export-netpi-patch.py \
+	tests/netpi/run-tests.sh \
+	tests/netpi/run-encoding-tests.sh \
+	tests/netpi/test_allocations.c \
+	tests/netpi/test_build_profiles.py \
+	tests/netpi/test_encoding.c \
+	tests/netpi/test_installer.py \
+	tests/netpi/test_neon.c \
+	tests/netpi/test_resampler.c \
+	tests/netpi/test_vbr_quantize.c \
 	testcase.mp3 \
 	testcase.wav
+
+# Requires a static library and GNU-compatible linker wrapping; see CONTRIBUTING.md.
+check-netpi: all
+	CC="$(CC)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  bash "$(top_srcdir)/tests/netpi/run-tests.sh" "$(abs_top_builddir)"
 
 #
 # The differences depend on the used processor architecture, the used

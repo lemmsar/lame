@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-2.0-or-later
 """Build a private, identified LAME library without replacing system packages."""
 
 import argparse
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -25,7 +27,8 @@ def source_digest():
     for path in sorted(SOURCE.rglob("*")):
         relative = path.relative_to(SOURCE)
         if any(
-            part in (".git", "autom4te.cache", "__pycache__", ".pytest_cache", ".ruff_cache")
+            part
+            in (".git", "autom4te.cache", "__pycache__", ".pytest_cache", ".ruff_cache")
             for part in relative.parts
         ) or relative.parts[0].startswith(("build", ".build")):
             continue
@@ -40,6 +43,33 @@ def source_digest():
 
 def output(command):
     return subprocess.check_output(command, text=True).strip()
+
+
+def build_flags(profile, fp_model, lto, environment):
+    if profile == "cortex-a53":
+        # GCC gives explicit -march/-mtune precedence over -mcpu, regardless of
+        # their order. CPPFLAGS and LTO link flags can select the CPU as well.
+        for variable in ("CFLAGS", "CPPFLAGS", "LDFLAGS", "LIBS"):
+            try:
+                options = shlex.split(environment.get(variable, ""))
+            except ValueError as error:
+                raise ValueError(f"invalid {variable}: {error}") from error
+            for option in options:
+                if option.partition("=")[0] in ("-march", "-mtune", "-mcpu"):
+                    raise ValueError(
+                        f"{variable} contains {option!r}; the cortex-a53 profile "
+                        "controls CPU selection. Remove the CPU option or use "
+                        "--profile generic."
+                    )
+    flags = "-O3 -fomit-frame-pointer"
+    flags += " " + environment.get("CFLAGS", "")
+    flags += " -ffast-math" if fp_model == "fast" else " -fno-fast-math"
+    if profile == "cortex-a53":
+        flags += " -mcpu=cortex-a53"
+    if lto:
+        flags += " -flto"
+    ldflags = environment.get("LDFLAGS", "") + (" -flto" if lto else "")
+    return flags, ldflags
 
 
 def check(library):
@@ -142,6 +172,10 @@ def main():
     if args.check:
         check(library.resolve(strict=True))
         return
+    try:
+        flags, ldflags = build_flags(args.profile, args.fp_model, args.lto, os.environ)
+    except ValueError as error:
+        parser.error(str(error))
     compiler = os.environ.get("CC", "gcc")
     for tool in (compiler, "make", "ffmpeg", "install", "ln", "mv"):
         if not shutil.which(tool):
@@ -151,14 +185,6 @@ def main():
         parser.error(
             "the cortex-a53 profile requires an AArch64 compiler and native execution"
         )
-    flags = "-O3 -fomit-frame-pointer"
-    flags += " " + os.environ.get("CFLAGS", "")
-    flags += " -ffast-math" if args.fp_model == "fast" else " -fno-fast-math"
-    if args.profile == "cortex-a53":
-        flags += " -mcpu=cortex-a53"
-    if args.lto:
-        flags += " -flto"
-    ldflags = os.environ.get("LDFLAGS", "") + (" -flto" if args.lto else "")
     configure = [
         "--disable-frontend",
         "--disable-decoder",

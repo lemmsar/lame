@@ -1,4 +1,5 @@
 dnl $Id$
+# Modified for the lemmsar/lame maintenance fork on 2026-10-11.
 dnl
 dnl
 dnl don't forget to set ASM_FOR_ARCH to a space delimited list of
@@ -22,6 +23,7 @@ dnl LIBMP3LAME_LDADD
 
 AC_PREREQ([2.73])
 AC_INIT([lame],[4.0],[lame-dev@lists.sf.net])
+AC_COPYRIGHT([Modified for the lemmsar/lame maintenance fork on 2026-10-11.])
 AC_CONFIG_SRCDIR([libmp3lame/lame.c])
 AC_CONFIG_MACRO_DIRS([m4])
 AC_LANG([C])
@@ -34,6 +36,7 @@ dnl automake
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS([config.h])
 AH_TOP([
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
 #ifndef LAME_CONFIG_H
 #define LAME_CONFIG_H
 ])

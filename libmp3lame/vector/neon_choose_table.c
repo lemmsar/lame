@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /*
  *      MP3 Huffman table selection, ARM NEON intrinsics
  *
@@ -47,35 +49,24 @@
  *  Source: https://svn.code.sf.net/p/lame/svn/!svn/bc/7051/trunk/lame/
  *          libmp3lame/vector/neon_choose_table.c
  *
- *  The one routine of the x86 vector tier that pays for itself on AArch64.
+ *  This fork enables the routine only with --enable-neon on AArch64. The
+ *  caller is selected at build time; the default build uses the scalar
+ *  counting loop. This NEON path has no runtime CPU dispatch and is not
+ *  built for 32-bit ARM.
  *
- *  Three of the seven x86 routines were never written here: clang already
- *  emits the equivalent, including a native 32-bit signed maximum, which is
- *  the only reason the SSE2 sibling of the region maximum exists at all.  Two
- *  more were written, measured and retired - the FFT and the no-escape
- *  counting loop - because both came out slower than the scalar code clang
- *  produces; see @ref vector_dispatch.  What is left is the escape-coded
- *  counting loop, which is worth +3.5 % on a 320 kbit/s encode and +1 % on
- *  VBR.
+ *  Raspberry Pi performance has not been measured. Upstream benchmark
+ *  results do not establish a speedup for this build on the target device.
  *
- *  It builds a table index from a pair of values, x * 16 + y.  The x86
- *  form narrows the region to sixteen bits so that one pmaddwd turns four
- *  pairs into four indices.  Advanced SIMD has no multiply-add-adjacent-pairs
- *  at any width, so the same thing is spelt as a multiply by (xlen, 1) per
- *  lane followed by a pairwise add.  That needs no narrowing, and so none of
- *  the saturation reasoning the x86 file has to carry comes with it.
+ *  Each pair of nonnegative quantized values contributes the table index
+ *  min(x, 15) * 16 + min(y, 15). Multiplying by (16, 1) and adding adjacent
+ *  lanes forms the indices; values >= 15 are counted separately for the
+ *  escape bits. The arithmetic does not narrow the values to sixteen bits.
  *
- *  vpadd_s32 over the halves, rather than vpaddq_s32 or vuzp1q/vuzp2q: those
- *  are AArch64-only spellings, while this one is in the ACLE for both A32 and
- *  A64 - and 32-bit ARM is the whole reason this tier is probed for at run
- *  time rather than assumed.
- *
- *  It reads [ix, end), whose length is even, and touches nothing else; the
- *  remainder is consumed pair by pair exactly as the scalar loop consumes it.
+ *  It reads [ix, end), whose length is even, and touches nothing else. The
+ *  remainder is consumed pair by pair exactly as in the scalar loop.
  */
 
-/* Adjacent lanes summed: {a0+a1, a2+a3}.  This is the pmaddwd of the x86
- * file, minus the multiply, which has already happened. */
+/* Sum adjacent products: {a0+a1, a2+a3}. */
 static int32x2_t
 fold_pairs(int32x4_t v)
 {
@@ -87,9 +78,7 @@ unsigned int
 count_bit_esc_neon(const int *ix, const int *const end,
                    const uint32_t * const largetbl, unsigned int *const nclamped)
 {
-    /* Written as an array and loaded, not as a braced vector initialiser:
-       the latter is a GCC/clang extension and this file has to compile with
-       MSVC on ARM64 as well. */
+    /* Load a constant array to avoid vector-initializer compiler extensions. */
     static const int32_t mul16[4] = { 16, 1, 16, 1 };
     int32x4_t const vmul = vld1q_s32(mul16);
     int32x4_t const v14 = vdupq_n_s32(14);

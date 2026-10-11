@@ -1,13 +1,22 @@
-Can I use LAME in my commercial program?  
+LAME usage guidance -- NetPi documentation update 2026-10-11
 
-Yes, you can, under the restrictions of the LGPL (see COPYING
-in this folder). The easiest way to do this is to:
+LAME may be used in commercial programs under the applicable GNU Library
+General Public License terms. COPYING contains the complete version 2 license
+text. Source-file notices specify whether version 2 or a later version applies.
+This guidance does not replace those terms.
 
-1. Link to LAME as separate library (libmp3lame.a on unix or 
-   lame_enc.dll or libmp3lame.dll on windows)
+Preserve the copyright, license and warranty notices. Distributing modified
+versions also requires the modification notices and other conditions described
+in COPYING, including the date of changes. Distribution of an application with
+the library is addressed in sections 5 and 6; linking the library separately
+does not by itself satisfy every distribution condition.
 
-2. Fully acknowledge that you are using LAME, and give a link
-   to our web site, https://lame.sourceforge.io/:w
+Acknowledge LAME and its upstream project at https://lame.sourceforge.io/.
+Contributing fixes to the upstream maintainers is encouraged. That invitation
+is voluntary and separate from the distribution conditions in COPYING.
 
-3. If you make modifications to LAME, you *must* release these
-   modifications back to the LAME project, under the LGPL.
+New NetPi scripts, tests and maintained documentation in this repository are
+provided under LGPL-2.0-or-later. Existing upstream and third-party license
+notices are retained. The original upstream usage guidance is preserved in
+doc/upstream/LICENSE as historical reference. The full license text in COPYING
+has not been changed.

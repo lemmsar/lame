@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.0-or-later
 # Run against a configured build with --disable-decoder.
 set -eu
 
@@ -6,11 +7,11 @@ test_source_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
 test_build_dir=$(CDPATH='' cd -- "${1:?usage: run-encoding-tests.sh BUILD_DIR}" && pwd)
 test_output_dir=$(mktemp -d)
 trap 'rm -rf "$test_output_dir"' EXIT HUP INT TERM
-test_cc=${CC:-cc}
+read -r -a test_cc <<< "${CC:-cc}"
 
 # CFLAGS/LDFLAGS intentionally accept the compiler's usual space-separated flags.
 # shellcheck disable=SC2086
-"$test_cc" ${CFLAGS:-} -std=c99 -Wall -Wextra -Werror \
+"${test_cc[@]}" ${CFLAGS:-} -std=c99 -Wall -Wextra -Werror \
     -I"$test_source_dir/include" "$test_source_dir/tests/netpi/test_encoding.c" \
     -L"$test_build_dir/libmp3lame/.libs" -Wl,-rpath,"$test_build_dir/libmp3lame/.libs" \
     ${LDFLAGS:-} -lmp3lame -lm -o "$test_output_dir/test_encoding"
@@ -32,7 +33,7 @@ for test_archive in "$test_build_dir"/libmp3lame/vector/.libs/*.a \
     fi
 done
 # shellcheck disable=SC2086
-"$test_cc" ${CFLAGS:-} -DHAVE_CONFIG_H \
+"${test_cc[@]}" ${CFLAGS:-} -DHAVE_CONFIG_H \
     -I"$test_build_dir" -I"$test_source_dir/include" -I"$test_source_dir/libmp3lame" \
     "$test_source_dir/tests/netpi/test_vbr_quantize.c" "$@" \
     ${LDFLAGS:-} -lm -o "$test_output_dir/test_vbr_quantize"

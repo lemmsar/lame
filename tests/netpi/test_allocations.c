@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.0-or-later */
+
 /* Link with the static encoder and -Wl,--wrap=calloc,--wrap=malloc,--wrap=free. */
 #include <stdio.h>
 #include <stdlib.h>

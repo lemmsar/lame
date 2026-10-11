@@ -14,6 +14,8 @@
 
 @SET_MAKE@
 
+# Modified for the lemmsar/lame maintenance fork on 2026-10-11.
+
 # global section for every Makefile.am
 VPATH = @srcdir@
 am__is_gnu_make = { \
@@ -289,7 +291,6 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
 EXTRA_DIST = \
-	.DS_Store \
 	LAME.mcp \
 	LAME_Carbon_Debug.pch \
 	LAME_Carbon_Final.pch \

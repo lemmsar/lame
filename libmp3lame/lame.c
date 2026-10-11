@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /* -*- mode: C; mode: fold -*- */
 /*
  *      LAME MP3 encoding engine

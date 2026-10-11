@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.0-or-later */
+
 /* Regression for the optional ARM64 integer Huffman counting routine.
  * Build together with neon_choose_table.c and tables.c, using the build's
  * config.h and the include/libmp3lame header paths. Exit 77 means unsupported.

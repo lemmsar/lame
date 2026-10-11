@@ -78,5 +78,32 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: sudo apt-get update && sudo apt-get install -y build-essential ffmpeg python3
+      - name: Verify build profile option validation
+        run: python3 tests/netpi/test_build_profiles.py
       - name: Verify installation identity and optional LTO/PGO builds
         run: python3 tests/netpi/test_installer.py
+  distribution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: sudo apt-get update && sudo apt-get install -y build-essential python3
+      - name: Build and test the source distribution
+        shell: bash
+        run: |
+          mkdir "$RUNNER_TEMP/package" "$RUNNER_TEMP/release" "$RUNNER_TEMP/build"
+          cd "$RUNNER_TEMP/package"
+          "$GITHUB_WORKSPACE/configure" --disable-frontend --disable-decoder --disable-nasm
+          make dist
+          tar -xzf lame-4.0.tar.gz -C "$RUNNER_TEMP/release"
+          source_dir="$RUNNER_TEMP/release/lame-4.0"
+          for file in README.md README.netpi CONTRIBUTING.md .github/workflows/ci.yml scripts/export-netpi-patch.py \
+            doc/upstream/README doc/upstream/HACKING doc/upstream/LICENSE; do
+            test -f "$source_dir/$file"
+          done
+          test ! -e "$source_dir/mac/.DS_Store"
+          python3 "$source_dir/tests/netpi/test_build_profiles.py"
+          cd "$RUNNER_TEMP/build"
+          "$source_dir/configure" --disable-frontend --disable-decoder --disable-nasm \
+            --enable-static --enable-shared --disable-neon --disable-ieeehack
+          make -j2 check-netpi

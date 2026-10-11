@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.0-or-later */
+
 /* Public API regression coverage for the NetPi encoding paths. */
 #include <lame.h>
 #include <math.h>

@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /*
  *	lame utility library source file
  *
@@ -108,6 +110,9 @@ free_global_data(lame_internal_flags * gfc)
 }
 
 
+/* Release resources acquired during parameter initialization so it can be
+   retried. Keep the encoder instance, its configuration, ATH object and user
+   tags; freegfc() releases the remaining instance resources at final teardown. */
 void
 free_init_data(lame_internal_flags * const gfc)
 {

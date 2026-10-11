@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /*
  * id3tag.c -- Write ID3 version 1 and 2 tags.
  *

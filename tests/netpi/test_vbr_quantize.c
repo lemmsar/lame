@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.0-or-later */
+
 /* Exercise the internal out-of-bits search that caused upstream bug #490. */
 #include "vbrquantize.c"
 #include <stdio.h>

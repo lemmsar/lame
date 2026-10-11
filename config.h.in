@@ -1,6 +1,7 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
 
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
 #ifndef LAME_CONFIG_H
 #define LAME_CONFIG_H
 
