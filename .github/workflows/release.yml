@@ -38,33 +38,35 @@ jobs:
         run: python3 tests/netpi/test_release_package.py
       - name: Build, compare and validate extracted binaries
         run: bash scripts/build-release.sh "$RUNNER_TEMP/compiler-builds" "$RUNNER_TEMP/release-output"
+      - name: Stage complete artifacts in the workspace
+        run: |
+          mkdir release-output
+          cp "$RUNNER_TEMP"/release-output/*.{tar.gz,json,txt} release-output/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-${{ matrix.architecture }}
-          path: |
-            ${{ runner.temp }}/release-output/*.tar.gz
-            ${{ runner.temp }}/release-output/*.json
-            ${{ runner.temp }}/release-output/*.txt
+          path: release-output/
           if-no-files-found: error
           retention-days: 14
+      - name: Collect compiler diagnostics
+        if: failure()
+        run: |
+          mkdir -p release-debug
+          cp "$RUNNER_TEMP"/compiler-builds/*.log release-debug/ 2>/dev/null || true
+          cp -r "$RUNNER_TEMP"/release-output/*-logs release-debug/ 2>/dev/null || true
+          cp "$RUNNER_TEMP"/release-output/benchmark-*.json release-debug/ 2>/dev/null || true
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: compiler-logs-${{ matrix.architecture }}
-          path: |
-            ${{ runner.temp }}/compiler-builds/*.log
-            ${{ runner.temp }}/release-output/*-logs/*.log
-            ${{ runner.temp }}/release-output/benchmark-*.json
+          path: release-debug/
           if-no-files-found: ignore
           retention-days: 7
-  publish:
-    name: Publish verified prerelease
-    if: startsWith(github.ref, 'refs/tags/v4.0-r') && github.event_name == 'push'
+  assemble:
+    name: Verify complete release bundle
     needs: binaries
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -75,17 +77,40 @@ jobs:
           path: release-output
           merge-multiple: true
       - name: Assemble corresponding source and checksums
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          test "$RELEASE_TAG" = "v$(cat RELEASE_VERSION)"
-          git merge-base --is-ancestor HEAD origin/main
           python3 scripts/assemble-release.py release-output
+          cd release-output
+          sha256sum --check SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-bundle
+          path: release-output/
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    name: Publish verified prerelease
+    if: startsWith(github.ref, 'refs/tags/v4.0-r') && github.event_name == 'push'
+    needs: assemble
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-bundle
+          path: release-output
       - name: Attach every asset before publishing
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          test "$RELEASE_TAG" = "v$(cat RELEASE_VERSION)"
+          git merge-base --is-ancestor HEAD origin/main
+          (cd release-output && sha256sum --check SHA256SUMS)
           if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
             echo 'This release already exists. Use a new revision; assets are never replaced.' >&2
             exit 1
