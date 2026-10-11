@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /*
  *      Xing VBR tagging for LAME.
  *
@@ -218,7 +220,8 @@ IsVbrTag(const unsigned char *buf)
     return (isTag0 || isTag1);
 }
 
-#define SHIFT_IN_BITS_VALUE(x,n,v) ( x = (x << (n)) | ( (v) & ~(-1 << (n)) ) )
+#define SHIFT_IN_BITS_VALUE(x,n,v) \
+    ( (x) = ((unsigned int)(x) << (n)) | ((unsigned int)(v) & ((1u << (n)) - 1u)) )
 
 static void
 setLameTagFrameHeader(lame_internal_flags const *gfc, unsigned char *buffer)

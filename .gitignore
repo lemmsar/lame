@@ -1,0 +1,11 @@
+/build*/
+/.build*/
+/release-output/
+/release-debug/
+__pycache__/
+*.pyc
+/.pytest_cache/
+/.ruff_cache/
+autom4te.cache/
+*~
+.DS_Store

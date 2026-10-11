@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /*
  *	Interface to MP3 LAME encoding engine
  *
@@ -632,7 +634,11 @@ int CDECL lame_get_maximum_number_of_samples(lame_t gfp, size_t buffer_size);
 /*
  * REQUIRED:
  * sets more internal configuration based on data provided above.
- * returns -1 if something failed.
+ * Returns 0 on success, -1 for an invalid handle or configuration (including
+ * an already initialized encoder), and -2 if internal initialization fails
+ * (for example, an allocation or header initialization failure).
+ * Check for a negative return value before encoding. After an allocation
+ * failure, the encoder can be closed or lame_init_params() can be retried.
  */
 int CDECL lame_init_params(lame_global_flags *);
 
@@ -905,6 +911,9 @@ int CDECL lame_encode_flush_nogap(
  * Xing headers into the front of the bitstream, and sets frame counters
  * and bitrate histogram data to 0.  You can also call this after
  * lame_encode_flush_nogap().
+ * Returns 0 on success, -2 if header initialization fails,
+ * or -3 if the encoder handle or bitstream state is invalid. Check for a
+ * negative return value before continuing with the new stream.
  */
 int CDECL lame_init_bitstream(
         lame_global_flags *  gfp);    /* global context handle                 */

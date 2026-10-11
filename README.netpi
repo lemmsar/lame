@@ -1,0 +1,99 @@
+SPDX-License-Identifier: LGPL-2.0-or-later
+
+NetPi private-library installation -- updated 2026-10-11
+======================================================
+
+README.md describes this unofficial LAME 4.0 maintenance fork, its source
+provenance, changes and license. CONTRIBUTING.md describes development and
+regression testing. This document covers the optional Linux installer.
+
+Requirements and platform scope
+-------------------------------
+
+scripts/build-netpi.py targets GNU/Linux with GCC, GNU make/binutils/coreutils,
+Python >= 3.11 and a dynamically linked FFmpeg built with libmp3lame support.
+It uses the Linux dynamic loader's LD_PRELOAD and loaded-object tracing.
+Build natively on the target: installation checks execute the newly built
+library, and PGO training executes it through FFmpeg. Other platform builds use
+the ordinary upstream build machinery documented in README.md.
+
+For Debian or Ubuntu, the base dependencies can be installed with:
+
+  sudo apt-get install build-essential python3 ffmpeg
+
+Build and install from the source root:
+
+  python3 scripts/build-netpi.py
+  python3 scripts/build-netpi.py --check
+  python3 scripts/build-netpi.py --force
+
+The default prefix is /opt/netpi/lame-4.0. Compilation runs as the invoking user;
+sudo is used for installation when the prefix is not writable. --prefix accepts
+an absolute writable location outside the source tree. Paths containing spaces
+or colons are rejected because the dynamic loader uses them as separators.
+
+Build identity and upgrades
+---------------------------
+
+The active lib/libmp3lame.so.0 is a symlink to builds/<input-id>-<binary-sha256>/.
+Each build retains manifest.json, config.log and configure/build output. Build
+identity includes source content, compiler, flags, profile, relevant toolchain
+settings and training-corpus hashes. Matching verified builds are reused;
+--force or --rebuild requests recompilation.
+
+The new library is checked before the active symlink is switched. Existing
+builds remain available for conversions that already resolved their library
+path. Keep files inside builds/ immutable. The installer uses a private prefix
+and leaves system package-managed libraries in place.
+
+Optional profiles
+-----------------
+
+Evaluate one change at a time on the actual device:
+
+  python3 scripts/build-netpi.py --profile cortex-a53
+  python3 scripts/build-netpi.py --lto
+  python3 scripts/build-netpi.py --neon
+  python3 scripts/build-netpi.py --fast-log yes
+  python3 scripts/build-netpi.py --fp-model strict
+  python3 scripts/build-netpi.py --pgo-corpus /path/to/representative-lossless-music
+
+The cortex-a53 profile requires an AArch64 compiler and native execution. It
+controls CPU selection: direct -march, -mtune and -mcpu options in CFLAGS,
+CPPFLAGS, LDFLAGS or LIBS are rejected. Remove those options or select the generic
+profile to retain custom CPU flags. NEON is off by default; enabling it on an
+unsupported architecture fails explicitly.
+
+The generic profile starts with -O3 and -ffast-math. Explicit floating-point
+options are applied after CFLAGS; --fp-model strict selects -fno-fast-math.
+Fast-log's auto mode preserves upstream architecture defaults. --ieee-hack
+selects the historical quantization path for comparisons. These settings can
+change encoded bytes and need separate quality and performance evaluation.
+
+LTO and PGO target GCC. PGO trains both mono and stereo V0 on WAV/FLAC files and
+then rebuilds with the collected profiles. Use a representative corpus that
+you are entitled to use. Training audio is not uploaded or installed; the
+manifest records relative names and content hashes. Compiler/build logs are
+retained when a build fails.
+
+Validation and integration
+--------------------------
+
+The automated regression and installer checks are described in CONTRIBUTING.md
+and .github/workflows/ci.yml. They cover native Linux execution, sanitizers,
+AArch64 under QEMU, output decoding and scalar/NEON equality.
+
+Native Raspberry Pi speed, peak memory, temperature and playback interference
+still need device measurements with the same input corpus and workload.
+Level-matched ABX listening is a separate check for perceived quality. No
+measured ARM speedup or audible improvement is claimed by this fork.
+
+NetPi uses FFmpeg planar PCM, V0 and separate rsgain analysis. Its application
+integration selects the private library for encoding subprocesses. The source
+build and tests in this repository run independently of that application.
+For batch throughput, compare worker counts of 1 and 2 under real playback and
+thermal load before choosing a setting.
+
+Legacy quantization-table initialization is shared within a process. Concurrent
+instance setup is not guaranteed to be thread-safe; NetPi's separate FFmpeg
+processes do not share those tables. See HACKING for initialization ownership.

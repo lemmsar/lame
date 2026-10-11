@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /*
  *	MP3 huffman table selecting and bit counting
  *
@@ -33,6 +35,7 @@
 #include "util.h"
 #include "quantize_pvt.h"
 #include "tables.h"
+#include "vector/lame_intrin.h"
 
 
 static const struct {
@@ -130,7 +133,7 @@ quantize_lines_xrpow_01(unsigned int l, FLOAT istep, const FLOAT * xr, int *ix)
 
 
 
-#ifdef TAKEHIRO_IEEE754_HACK
+#if TAKEHIRO_IEEE754_HACK
 
 typedef union {
     float   f;
@@ -453,6 +456,11 @@ count_bit_ESC(const int *ix, const int *const end, int t1, const int t2, unsigne
     unsigned int const linbits = ht[t1].xlen * 65536u + ht[t2].xlen;
     unsigned int sum = 0, sum2;
 
+#ifdef HAVE_NEON_INTRINSICS
+    unsigned int nclamped;
+    sum = count_bit_esc_neon(ix, end, largetbl, &nclamped);
+    sum += nclamped * linbits;
+#else
     do {
         unsigned int x = *ix++;
         unsigned int y = *ix++;
@@ -469,6 +477,7 @@ count_bit_ESC(const int *ix, const int *const end, int t1, const int t2, unsigne
         x += y;
         sum += largetbl[x];
     } while (ix < end);
+#endif
 
     sum2 = sum & 0xffffu;
     sum >>= 16u;

@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /*
  * id3tag.c -- Write ID3 version 1 and 2 tags.
  *
@@ -154,13 +156,14 @@ typedef enum MiscIDs { ID_TXXX = FRAME_ID('T', 'X', 'X', 'X')
 } MiscIDs;
 
 
-static int
+static unsigned int
 frame_id_matches(int id, int mask)
 {
-    int     result = 0, i, window = 0xff;
+    unsigned int result = 0, window = 0xffu;
+    int     i;
     for (i = 0; i < 4; ++i, window <<= 8) {
-        int const mw = (mask & window);
-        int const iw = (id & window);
+        unsigned int const mw = (unsigned int)mask & window;
+        unsigned int const iw = (unsigned int)id & window;
         if (mw != 0 && mw != iw) {
             result |= iw;
         }

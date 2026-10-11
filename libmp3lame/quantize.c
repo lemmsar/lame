@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /*
  * MP3 quantization
  *
@@ -895,7 +897,7 @@ inc_subblock_gain(const lame_internal_flags * const gfc, gr_info * const cod_inf
 
             scalefac[sfb] = 0;
             {
-                int const gain = 210 + (s << (cod_info->scalefac_scale + 1));
+                int const gain = 210 + s * (1 << (cod_info->scalefac_scale + 1));
                 amp = IPOW20(gain);
             }
             j += width * (window + 1);
@@ -1136,7 +1138,7 @@ outer_loop(lame_internal_flags * gfc, gr_info * const cod_info, const FLOAT * co
 
             /* save data so we can restore this quantization later */
             if (better) {
-                best_part2_3_length = cod_info->part2_3_length;
+                best_part2_3_length = cod_info_w.part2_3_length;
                 best_noise_info = noise_info;
                 *cod_info = cod_info_w;
                 age = 0;

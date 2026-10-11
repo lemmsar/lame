@@ -14,6 +14,8 @@
 
 @SET_MAKE@
 
+# Modified for the lemmsar/lame maintenance fork on 2026-10-11.
+
 # global section for every Makefile.am
 
 
@@ -93,6 +95,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+@WITH_XMM_TRUE@am__append_1 = $(xmm_sources)
+@WITH_NEON_TRUE@am__append_2 = $(neon_sources)
 subdir = libmp3lame/vector
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/host-cpu-c-abi.m4 \
@@ -112,16 +116,21 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 liblamevectorroutines_la_LIBADD =
-am__liblamevectorroutines_la_SOURCES_DIST = xmm_quantize_sub.c
+am__liblamevectorroutines_la_SOURCES_DIST = xmm_quantize_sub.c \
+	neon_choose_table.c
 am__objects_1 = xmm_quantize_sub.lo
-@WITH_XMM_TRUE@am_liblamevectorroutines_la_OBJECTS = $(am__objects_1)
+@WITH_XMM_TRUE@am__objects_2 = $(am__objects_1)
+am__objects_3 = neon_choose_table.lo
+@WITH_NEON_TRUE@am__objects_4 = $(am__objects_3)
+am_liblamevectorroutines_la_OBJECTS = $(am__objects_2) \
+	$(am__objects_4)
 liblamevectorroutines_la_OBJECTS =  \
 	$(am_liblamevectorroutines_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
-@WITH_XMM_TRUE@am_liblamevectorroutines_la_rpath =
+@WITH_VECTOR_TRUE@am_liblamevectorroutines_la_rpath =
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -137,7 +146,8 @@ am__v_at_1 =
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/xmm_quantize_sub.Plo
+am__depfiles_remade = ./$(DEPDIR)/neon_choose_table.Plo \
+	./$(DEPDIR)/xmm_quantize_sub.Plo
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -349,11 +359,12 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = 1.15 foreign
-@WITH_XMM_TRUE@noinst_LTLIBRARIES = liblamevectorroutines.la
+@WITH_VECTOR_TRUE@noinst_LTLIBRARIES = liblamevectorroutines.la
 xmm_sources = xmm_quantize_sub.c
-@WITH_XMM_TRUE@liblamevectorroutines_la_SOURCES = $(xmm_sources)
+neon_sources = neon_choose_table.c
+liblamevectorroutines_la_SOURCES = $(am__append_1) $(am__append_2)
 noinst_HEADERS = lame_intrin.h
-EXTRA_liblamevectorroutines_la_SOURCES = $(xmm_sources)
+EXTRA_liblamevectorroutines_la_SOURCES = $(xmm_sources) $(neon_sources)
 CLEANFILES = lclint.txt
 LCLINTFLAGS = \
 	+posixlib \
@@ -418,6 +429,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/neon_choose_table.Plo@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xmm_quantize_sub.Plo@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -579,6 +591,7 @@ clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
 	mostlyclean-am
 
 distclean: distclean-am
+	-rm -f ./$(DEPDIR)/neon_choose_table.Plo
 	-rm -f ./$(DEPDIR)/xmm_quantize_sub.Plo
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -625,6 +638,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
+	-rm -f ./$(DEPDIR)/neon_choose_table.Plo
 	-rm -f ./$(DEPDIR)/xmm_quantize_sub.Plo
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic

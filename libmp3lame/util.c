@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /*
  *	lame utility library source file
  *
@@ -108,9 +110,12 @@ free_global_data(lame_internal_flags * gfc)
 }
 
 
+/* Release resources acquired during parameter initialization so it can be
+   retried. Keep the encoder instance, its configuration, ATH object and user
+   tags; freegfc() releases the remaining instance resources at final teardown. */
 void
-freegfc(lame_internal_flags * const gfc)
-{                       /* bit stream structure */
+free_init_data(lame_internal_flags * const gfc)
+{
     int     i;
 
     if (gfc == 0) return;
@@ -128,6 +133,7 @@ freegfc(lame_internal_flags * const gfc)
         free(gfc->sv_enc.inbuf_old[1]);
         gfc->sv_enc.inbuf_old[1] = NULL;
     }
+    gfc->fill_buffer_resample_init = 0;
 
     if (gfc->bs.buf != NULL) {
         free(gfc->bs.buf);
@@ -139,11 +145,23 @@ freegfc(lame_internal_flags * const gfc)
         gfc->VBR_seek_table.bag = NULL;
         gfc->VBR_seek_table.size = 0;
     }
-    if (gfc->ATH) {
-        free(gfc->ATH);
-    }
     if (gfc->sv_rpg.rgdata) {
         free(gfc->sv_rpg.rgdata);
+        gfc->sv_rpg.rgdata = NULL;
+    }
+    free_global_data(gfc);
+    gfc->iteration_init_init = 0;
+}
+
+
+void
+freegfc(lame_internal_flags * const gfc)
+{
+    if (gfc == NULL)
+        return;
+    free_init_data(gfc);
+    if (gfc->ATH) {
+        free(gfc->ATH);
     }
     if (gfc->sv_enc.in_buffer_0) {
         free(gfc->sv_enc.in_buffer_0);
@@ -159,8 +177,6 @@ freegfc(lame_internal_flags * const gfc)
         gfc->hip = 0;
     }
 #endif
-
-    free_global_data(gfc);
 
     free(gfc);
 }
@@ -534,6 +550,55 @@ gcd(int i, int j)
 
 
 
+int
+init_resampler(lame_internal_flags * gfc)
+{
+    SessionConfig_t const *const cfg = &gfc->cfg;
+    EncStateVar_t *const esv = &gfc->sv_enc;
+    double ratio;
+    FLOAT fcn;
+    int filter_l, size, bpc, i, j;
+
+    if (!isResamplingNecessary(cfg) || gfc->fill_buffer_resample_init)
+        return 0;
+
+    ratio = (double) cfg->samplerate_in / cfg->samplerate_out;
+    filter_l = 31 + (fabs(ratio - floor(.5 + ratio)) < FLT_EPSILON);
+    size = filter_l + 1;
+    bpc = Min(BPC, cfg->samplerate_out / gcd(cfg->samplerate_out, cfg->samplerate_in));
+    fcn = Min(1.0, 1.0 / ratio);
+
+    esv->inbuf_old[0] = lame_calloc(sample_t, size);
+    esv->inbuf_old[1] = lame_calloc(sample_t, size);
+    if (esv->inbuf_old[0] == NULL || esv->inbuf_old[1] == NULL)
+        goto allocation_failed;
+    for (j = 0; j <= 2 * bpc; ++j) {
+        FLOAT sum = 0.;
+        FLOAT const offset = (j - bpc) / (2. * bpc);
+        esv->blackfilt[j] = lame_calloc(sample_t, size);
+        if (esv->blackfilt[j] == NULL)
+            goto allocation_failed;
+        for (i = 0; i <= filter_l; ++i)
+            sum += esv->blackfilt[j][i] = blackman(i - offset, fcn, filter_l);
+        for (i = 0; i <= filter_l; ++i)
+            esv->blackfilt[j][i] /= sum;
+    }
+    esv->itime[0] = esv->itime[1] = 0;
+    gfc->fill_buffer_resample_init = 1;
+    return 0;
+
+allocation_failed:
+    free(esv->inbuf_old[0]);
+    free(esv->inbuf_old[1]);
+    esv->inbuf_old[0] = esv->inbuf_old[1] = NULL;
+    for (j = 0; j <= 2 * bpc; ++j) {
+        free(esv->blackfilt[j]);
+        esv->blackfilt[j] = NULL;
+    }
+    return -2;
+}
+
+
 static int
 fill_buffer_resample(lame_internal_flags * gfc,
                      sample_t * outbuf,
@@ -563,26 +628,8 @@ fill_buffer_resample(lame_internal_flags * gfc,
 
     BLACKSIZE = filter_l + 1; /* size of data needed for FIR */
 
-    if (gfc->fill_buffer_resample_init == 0) {
-        esv->inbuf_old[0] = lame_calloc(sample_t, BLACKSIZE);
-        esv->inbuf_old[1] = lame_calloc(sample_t, BLACKSIZE);
-        for (i = 0; i <= 2 * bpc; ++i)
-            esv->blackfilt[i] = lame_calloc(sample_t, BLACKSIZE);
-
-        esv->itime[0] = 0;
-        esv->itime[1] = 0;
-
-        /* precompute blackman filter coefficients */
-        for (j = 0; j <= 2 * bpc; j++) {
-            FLOAT   sum = 0.;
-            offset = (j - bpc) / (2. * bpc);
-            for (i = 0; i <= filter_l; i++)
-                sum += esv->blackfilt[j][i] = blackman(i - offset, fcn, filter_l);
-            for (i = 0; i <= filter_l; i++)
-                esv->blackfilt[j][i] /= sum;
-        }
-        gfc->fill_buffer_resample_init = 1;
-    }
+    if (init_resampler(gfc) < 0)
+        return -2;
 
     inbuf_old = esv->inbuf_old[ch];
 
@@ -670,16 +717,14 @@ fill_buffer_resample(lame_internal_flags * gfc,
 int
 isResamplingNecessary(SessionConfig_t const* cfg)
 {
-    int const l = cfg->samplerate_out * 0.9995f;
-    int const h = cfg->samplerate_out * 1.0005f;
-    return (cfg->samplerate_in < l) || (h < cfg->samplerate_in) ? 1 : 0;
+    return cfg->samplerate_in != cfg->samplerate_out;
 }
 
 /* copy in new samples from in_buffer into mfbuf, with resampling
    if necessary.  n_in = number of samples from the input buffer that
    were used.  n_out = number of samples copied into mfbuf  */
 
-void
+int
 fill_buffer(lame_internal_flags * gfc,
             sample_t * const mfbuf[2], sample_t const * const in_buffer[2], int nsamples, int *n_in, int *n_out)
 {
@@ -695,6 +740,8 @@ fill_buffer(lame_internal_flags * gfc,
             nout =
                 fill_buffer_resample(gfc, &mfbuf[ch][mf_size],
                                      framesize, in_buffer[ch], nsamples, n_in, ch);
+            if (nout < 0)
+                return nout;
         } while (++ch < nch);
         *n_out = nout;
     }
@@ -706,6 +753,7 @@ fill_buffer(lame_internal_flags * gfc,
         *n_out = nout;
         *n_in = nout;
     }
+    return 0;
 }
 
 

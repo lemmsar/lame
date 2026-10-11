@@ -1,4 +1,5 @@
 dnl $Id$
+# Modified for the lemmsar/lame maintenance fork on 2026-10-11.
 dnl
 dnl
 dnl don't forget to set ASM_FOR_ARCH to a space delimited list of
@@ -22,6 +23,7 @@ dnl LIBMP3LAME_LDADD
 
 AC_PREREQ([2.73])
 AC_INIT([lame],[4.0],[lame-dev@lists.sf.net])
+AC_COPYRIGHT([Modified for the lemmsar/lame maintenance fork on 2026-10-11.])
 AC_CONFIG_SRCDIR([libmp3lame/lame.c])
 AC_CONFIG_MACRO_DIRS([m4])
 AC_LANG([C])
@@ -34,6 +36,7 @@ dnl automake
 AM_INIT_AUTOMAKE
 AC_CONFIG_HEADERS([config.h])
 AH_TOP([
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
 #ifndef LAME_CONFIG_H
 #define LAME_CONFIG_H
 ])
@@ -441,13 +444,16 @@ AC_ARG_ENABLE(nasm,
 
 AC_ARG_ENABLE(ieeehack,
   [  --enable-ieeehack       Enable Takhiros IEEE754 hack (speed improvement for old CPUs)],
-  IEEE754_HACK="yes", IEEE754_HACK="no")
+  IEEE754_HACK="$enableval", IEEE754_HACK="no")
 case ${IEEE754_HACK} in
 	yes)
 		AC_DEFINE(TAKEHIRO_IEEE754_HACK, 1, IEEE754 compatible machine)
 		;;
 	no)
 		AC_DEFINE(TAKEHIRO_IEEE754_HACK, 0, IEEE754 compatible machine)
+		;;
+	*)
+		AC_MSG_ERROR([--enable-ieeehack accepts only yes or no])
 		;;
 esac
 
@@ -752,6 +758,8 @@ AC_MSG_RESULT(${TERMCAP_DEFAULT})
 
 dnl ### processor specific options ###
 WITH_VECTOR=no
+WITH_NEON=no
+FAST_LOG_DEFAULT=no
 case $host_cpu in
 x86_64|amd64)
 	CPUTYPE="no"
@@ -760,7 +768,7 @@ x86_64|amd64)
 		WITH_VECTOR=yes
 	fi
 
-	AC_DEFINE(USE_FAST_LOG, 1, faster log implementation with less but enough precission)
+	FAST_LOG_DEFAULT=yes
 	;;
 *86)
 	CPUTYPE="i386"
@@ -769,18 +777,58 @@ x86_64|amd64)
 		WITH_VECTOR=yes
 	fi
 
-	AC_DEFINE(USE_FAST_LOG, 1, faster log implementation with less but enough precission)
+	FAST_LOG_DEFAULT=yes
 	;;
 powerpc)
 	CPUTYPE="no"
 
 	# The following should not get enabled on a G5. HOWTO check for a G5?
-	AC_DEFINE(USE_FAST_LOG, 1, faster log implementation with less but enough precission)
+	FAST_LOG_DEFAULT=yes
 	;;
 *)
 	CPUTYPE="no"
 	;;
 esac
+
+dnl ARM64 guarantees Advanced SIMD. Keep the new routine opt-in until it has
+dnl been benchmarked on the deployment device; other targets retain scalar C.
+AC_ARG_ENABLE([neon],
+  [AS_HELP_STRING([--enable-neon], [enable ARM64 NEON Huffman bit counting (default=no)])],
+  [WITH_NEON="$enableval"], [WITH_NEON=no])
+case "$WITH_NEON" in
+  yes)
+    case "$host_cpu" in
+      aarch64*|arm64)
+        AC_MSG_CHECKING([for ARM64 NEON intrinsics])
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <arm_neon.h>]],
+          [[int32x4_t v = vdupq_n_s32(15); return vgetq_lane_s32(vminq_s32(v, v), 0);]])],
+          [AC_MSG_RESULT([yes])
+           AC_DEFINE([HAVE_NEON_INTRINSICS], [1], [Define if ARM64 NEON intrinsics are enabled.])
+           WITH_VECTOR=yes],
+          [AC_MSG_RESULT([no])
+           AC_MSG_ERROR([--enable-neon requires working ARM64 NEON intrinsics])])
+        ;;
+      *) AC_MSG_ERROR([--enable-neon is supported only on ARM64; use --disable-neon for the scalar path]) ;;
+    esac
+    ;;
+  no) ;;
+  *) AC_MSG_ERROR([--enable-neon accepts only yes or no]) ;;
+esac
+AM_CONDITIONAL([WITH_NEON], [test "x$WITH_NEON" = xyes])
+
+dnl Preserve the release's architecture defaults, while allowing measured
+dnl comparisons without changing source or injecting private preprocessor flags.
+AC_ARG_ENABLE([fast-log],
+  [AS_HELP_STRING([--enable-fast-log@<:@=auto/yes/no@:>@], [use approximate log tables (default=auto, release architecture defaults)])],
+  [USE_FAST_LOG_OPTION="$enableval"], [USE_FAST_LOG_OPTION=auto])
+case "$USE_FAST_LOG_OPTION" in
+  auto) USE_FAST_LOG_OPTION="$FAST_LOG_DEFAULT" ;;
+  yes|no) ;;
+  *) AC_MSG_ERROR([--enable-fast-log accepts only auto, yes or no]) ;;
+esac
+if test "x$USE_FAST_LOG_OPTION" = xyes; then
+  AC_DEFINE([USE_FAST_LOG], [1], [Use approximate log tables.])
+fi
 
 # which vector code do we support to build on this machine?
 AM_CONDITIONAL(WITH_XMM, test "x${WITH_XMM}" = "xyes")

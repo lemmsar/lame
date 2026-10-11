@@ -4,6 +4,9 @@
  *      Copyright (c) 1999 Albert L Faber
  *                    2008-2017 Robert Hegemann
  *
+ *      Modified by lemmsar/lame, 2026-10-11: unpack PCM samples with
+ *      unsigned shifts to preserve their bit patterns without overflow.
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either
@@ -1317,27 +1320,30 @@ unpack_read_samples(const int samples_to_read, const int bytes_per_sample,
 
     if (swap_order == 0) {
         GA_URS_IFLOOP(1)
-            * --op = ip[i] << (b - 8);
+            * --op = (unsigned int) ip[i] << (b - 8);
         GA_URS_IFLOOP(2)
-            * --op = ip[i] << (b - 16) | ip[i + 1] << (b - 8);
+            * --op = (unsigned int) ip[i] << (b - 16) | (unsigned int) ip[i + 1] << (b - 8);
         GA_URS_IFLOOP(3)
-            * --op = ip[i] << (b - 24) | ip[i + 1] << (b - 16) | ip[i + 2] << (b - 8);
+            * --op = (unsigned int) ip[i] << (b - 24) | (unsigned int) ip[i + 1] << (b - 16)
+                | (unsigned int) ip[i + 2] << (b - 8);
         GA_URS_IFLOOP(4)
             * --op =
-            ip[i] << (b - 32) | ip[i + 1] << (b - 24) | ip[i + 2] << (b - 16) | ip[i + 3] << (b -
-                                                                                              8);
+            (unsigned int) ip[i] << (b - 32) | (unsigned int) ip[i + 1] << (b - 24)
+                | (unsigned int) ip[i + 2] << (b - 16) | (unsigned int) ip[i + 3] << (b - 8);
     }
     else {
         GA_URS_IFLOOP(1)
-            * --op = (ip[i] ^ 0x80) << (b - 8) | 0x7f << (b - 16); /* convert from unsigned */
+            * --op = ((unsigned int) ip[i] ^ 0x80u) << (b - 8)
+                | 0x7fu << (b - 16); /* convert from unsigned */
         GA_URS_IFLOOP(2)
-            * --op = ip[i] << (b - 8) | ip[i + 1] << (b - 16);
+            * --op = (unsigned int) ip[i] << (b - 8) | (unsigned int) ip[i + 1] << (b - 16);
         GA_URS_IFLOOP(3)
-            * --op = ip[i] << (b - 8) | ip[i + 1] << (b - 16) | ip[i + 2] << (b - 24);
+            * --op = (unsigned int) ip[i] << (b - 8) | (unsigned int) ip[i + 1] << (b - 16)
+                | (unsigned int) ip[i + 2] << (b - 24);
         GA_URS_IFLOOP(4)
             * --op =
-            ip[i] << (b - 8) | ip[i + 1] << (b - 16) | ip[i + 2] << (b - 24) | ip[i + 3] << (b -
-                                                                                             32);
+            (unsigned int) ip[i] << (b - 8) | (unsigned int) ip[i + 1] << (b - 16)
+                | (unsigned int) ip[i + 2] << (b - 24) | (unsigned int) ip[i + 3] << (b - 32);
     }
 #undef GA_URS_IFLOOP
     if (global.pcm_is_ieee_float) {

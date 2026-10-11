@@ -1,6 +1,7 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
 
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
 #ifndef LAME_CONFIG_H
 #define LAME_CONFIG_H
 
@@ -125,6 +126,9 @@
 
 /* Define to 1 if you have the <ncurses/termcap.h> header file. */
 #undef HAVE_NCURSES_TERMCAP_H
+
+/* Define if ARM64 NEON intrinsics are enabled. */
+#undef HAVE_NEON_INTRINSICS
 
 /* Define to 1 if you have the 'nl_langinfo' function. */
 #undef HAVE_NL_LANGINFO
@@ -298,7 +302,7 @@
    macro is obsolete. */
 #undef TIME_WITH_SYS_TIME
 
-/* faster log implementation with less but enough precission */
+/* Use approximate log tables. */
 #undef USE_FAST_LOG
 
 /* Enable extensions on AIX, Interix, z/OS.  */

@@ -14,6 +14,8 @@
 
 @SET_MAKE@
 
+# Modified for the lemmsar/lame maintenance fork on 2026-10-11.
+
 # global section for every Makefile.am
 VPATH = @srcdir@
 am__is_gnu_make = { \
@@ -166,7 +168,7 @@ am__define_uniq_tagged_files = \
 DIST_SUBDIRS = $(SUBDIRS)
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in \
 	$(srcdir)/lame.spec.in $(top_srcdir)/Makefile.am.global \
-	ABOUT-NLS COPYING ChangeLog INSTALL README TODO compile \
+	ABOUT-NLS COPYING ChangeLog INSTALL README.md TODO compile \
 	config.guess config.rpath config.sub depcomp install-sh \
 	ltmain.sh missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -379,7 +381,10 @@ SUBDIRS = mpglib libmp3lame frontend Dll doc include misc dshow ACM \
 
 CLEANFILES = testcase.new.mp3
 EXTRA_DIST = \
+	.github/workflows/ci.yml \
+	.github/workflows/release.yml \
 	API \
+	CONTRIBUTING.md \
 	DEFINES \
 	HACKING \
 	INSTALL.configure \
@@ -388,13 +393,41 @@ EXTRA_DIST = \
 	Makefile.unix \
 	Makefile.am.global \
 	README.WINGTK \
+	README.md \
+	README.netpi \
+	RELEASE_VERSION \
+	RELEASE_NOTES.md \
+	RELEASING.md \
 	STYLEGUIDE \
 	USAGE \
 	configMS.h \
 	debian \
+	doc/COMPILER_BENCHMARKS.md \
+	doc/upstream/README \
+	doc/upstream/HACKING \
+	doc/upstream/LICENSE \
 	lame.bat \
 	lame.spec.in \
 	lame.spec \
+	scripts/build-netpi.py \
+	scripts/build-release.sh \
+	scripts/prepare-release-toolchains.sh \
+	scripts/benchmark-compilers.py \
+	scripts/package-release.py \
+	scripts/assemble-release.py \
+	scripts/export-netpi-patch.py \
+	tests/netpi/run-tests.sh \
+	tests/netpi/run-encoding-tests.sh \
+	tests/netpi/test_allocations.c \
+	tests/netpi/test_build_profiles.py \
+	tests/netpi/test_encoding.c \
+	tests/netpi/test_frontend.py \
+	tests/netpi/test_installer.py \
+	tests/netpi/test_release_package.py \
+	tests/netpi/test_release_assembly.py \
+	tests/netpi/test_neon.c \
+	tests/netpi/test_resampler.c \
+	tests/netpi/test_vbr_quantize.c \
 	testcase.mp3 \
 	testcase.wav
 
@@ -902,7 +935,12 @@ uninstall-am:
 
 # end global section
 
-.PHONY: test
+.PHONY: test check-netpi
+
+# Requires a static library and GNU-compatible linker wrapping; see CONTRIBUTING.md.
+check-netpi: all
+	CC="$(CC)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  bash "$(top_srcdir)/tests/netpi/run-tests.sh" "$(abs_top_builddir)"
 
 #
 # The differences depend on the used processor architecture, the used

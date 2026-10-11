@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /*
  *	MP3 bitstream Output interface for LAME
  *
@@ -31,7 +33,7 @@ void    add_dummy_byte(lame_internal_flags * gfc, unsigned char val, unsigned in
 
 int     copy_buffer(lame_internal_flags * gfc, unsigned char *buffer, int buffer_size,
                     int update_crc);
-void    init_bit_stream_w(lame_internal_flags * gfc);
+int     init_bit_stream_w(lame_internal_flags * gfc);
 void    CRC_writeheader(lame_internal_flags const *gfc, char *buffer);
 int     compute_flushbits(const lame_internal_flags * gfp, int *nbytes);
 

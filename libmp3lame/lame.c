@@ -1,3 +1,5 @@
+/* Modified for the lemmsar/lame maintenance fork on 2026-10-11. */
+
 /* -*- mode: C; mode: fold -*- */
 /*
  *      LAME MP3 encoding engine
@@ -476,6 +478,11 @@ lame_init_qval(lame_global_flags * gfp)
         break;
     }
 
+    /* Match upstream: amplification uses an incompatible distortion measure
+       in the CBR/ABR loops after their switch to the VBR psychoacoustic model. */
+    if (cfg->vbr == vbr_off || cfg->vbr == vbr_abr)
+        cfg->noise_shaping_amp = 0;
+
 }
 
 
@@ -936,7 +943,8 @@ lame_init_params(lame_global_flags * gfp)
         gfc->ov_enc.bitrate_index = 1;
     }
 
-    init_bit_stream_w(gfc);
+    if (init_bit_stream_w(gfc) < 0)
+        goto allocation_failed;
 
     j = cfg->samplerate_index + (3 * cfg->version) + 6 * (cfg->samplerate_out < 16000);
     for (i = 0; i < SBMAX_l + 1; i++)
@@ -1273,10 +1281,12 @@ lame_init_params(lame_global_flags * gfp)
         gfc->sv_enc.slot_lag = gfc->sv_enc.frac_SpF
             = ((cfg->version + 1) * 72000L * cfg->avg_bitrate) % cfg->samplerate_out;
 
-    (void) lame_init_bitstream(gfp);
+    if (init_resampler(gfc) < 0 || lame_init_bitstream(gfp) < 0)
+        goto allocation_failed;
 
     iteration_init(gfc);
-    (void) psymodel_init(gfp);
+    if (psymodel_init(gfp) < 0)
+        goto allocation_failed;
 
     cfg->buffer_constraint = get_max_frame_buffer_size_by_constraint(cfg, gfp->strict_ISO);
 
@@ -1288,6 +1298,11 @@ lame_init_params(lame_global_flags * gfp)
         cfg->findPeakSample = 1;
 
     if (cfg->findReplayGain) {
+        if (gfc->sv_rpg.rgdata == NULL) {
+            gfc->sv_rpg.rgdata = lame_calloc(replaygain_t, 1);
+            if (gfc->sv_rpg.rgdata == NULL)
+                goto allocation_failed;
+        }
         if (InitGainAnalysis(gfc->sv_rpg.rgdata, cfg->samplerate_out) == INIT_GAIN_ANALYSIS_ERROR) {
             /* Actually this never happens, our samplerates are the ones RG accepts!
              * But just in case, turn RG off
@@ -1303,6 +1318,8 @@ lame_init_params(lame_global_flags * gfp)
             hip_decode_exit(gfc->hip);
         }
         gfc->hip = hip_decode_init();
+        if (gfc->hip == NULL)
+            goto allocation_failed;
         /* report functions */
         hip_set_errorf(gfc->hip, gfp->report.errorf);
         hip_set_debugf(gfc->hip, gfp->report.debugf);
@@ -1312,6 +1329,10 @@ lame_init_params(lame_global_flags * gfp)
     /* updating lame internal flags finished successful */
     gfc->lame_init_params_successful = 1;
     return 0;
+
+allocation_failed:
+    free_init_data(gfc);
+    return -2;
 }
 
 static void
@@ -1746,7 +1767,9 @@ lame_encode_buffer_sample_t(lame_internal_flags * gfc,
         in_buffer_ptr[0] = in_buffer[0];
         in_buffer_ptr[1] = in_buffer[1];
         /* copy in new samples into mfbuf, with resampling */
-        fill_buffer(gfc, mfbuf, &in_buffer_ptr[0], nsamples, &n_in, &n_out);
+        ret = fill_buffer(gfc, mfbuf, &in_buffer_ptr[0], nsamples, &n_in, &n_out);
+        if (ret < 0)
+            return ret;
 
         /* compute ReplayGain of resampled input if requested */
         if (cfg->findReplayGain && !cfg->decode_on_the_fly)
@@ -2057,11 +2080,12 @@ lame_init_bitstream(lame_global_flags * gfp)
 {
     if (is_lame_global_flags_valid(gfp)) {
         lame_internal_flags *const gfc = gfp->internal_flags;
-        if (gfc != 0) {
+        if (gfc != 0 && gfc->bs.buf != NULL) {
             gfc->ov_enc.frame_number = 0;
 
             if (gfp->write_id3tag_automatic) {
-                (void) id3tag_write_v2(gfp);
+                if (id3tag_write_v2(gfp) < 0)
+                    return -2;
             }
             /* initialize histogram data optionally used by frontend */
             memset(gfc->ov_enc.bitrate_channelmode_hist, 0,
@@ -2072,8 +2096,8 @@ lame_init_bitstream(lame_global_flags * gfp)
             gfc->ov_rpg.PeakSample = 0.0;
 
             /* Write initial VBR Header to bitstream and init VBR data */
-            if (gfc->cfg.write_lame_tag)
-                (void) InitVbrTag(gfp);
+            if (gfc->cfg.write_lame_tag && InitVbrTag(gfp) < 0)
+                return -2;
 
 
             return 0;
@@ -2385,10 +2409,6 @@ lame_init_internal_flags(lame_internal_flags* gfc)
     if (NULL == gfc->ATH)
         return -2;      /* maybe error codes should be enumerated in lame.h ?? */
 
-    gfc->sv_rpg.rgdata = lame_calloc(replaygain_t, 1);
-    if (NULL == gfc->sv_rpg.rgdata) {
-        return -2;
-    }
     return 0;
 }
 

@@ -1,9 +1,9 @@
 ## $Id$
+# Modified for the lemmsar/lame maintenance fork on 2026-10-11.
 
 include $(top_srcdir)/Makefile.am.global
 
 EXTRA_DIST = \
-	.DS_Store \
 	LAME.mcp \
 	LAME_Carbon_Debug.pch \
 	LAME_Carbon_Final.pch \
