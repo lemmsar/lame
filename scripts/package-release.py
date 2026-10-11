@@ -324,8 +324,8 @@ def package(build, source, version, output):
         run(["patchelf", "--set-rpath", "$ORIGIN/../lib", str(root / EXECUTABLE)])
         run(["patchelf", "--remove-rpath", str(root / LIBRARY)])
         for executable, allowed in (
-            (EXECUTABLE, {"libmp3lame.so.0", "libm.so.6", "libc.so.6"}),
-            (LIBRARY, {"libm.so.6", "libc.so.6"}),
+            (EXECUTABLE, {"libmp3lame.so.0", "libm.so.6", "libmvec.so.1", "libc.so.6"}),
+            (LIBRARY, {"libm.so.6", "libmvec.so.1", "libc.so.6"}),
         ):
             needed = set(run(["patchelf", "--print-needed", str(root / executable)]).splitlines())
             if not needed <= allowed:

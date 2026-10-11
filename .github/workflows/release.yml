@@ -30,6 +30,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Trust this checkout inside the build container
+        run: git config --system --add safe.directory "$GITHUB_WORKSPACE"
       - name: Prepare pinned compiler candidates
         run: bash scripts/prepare-release-toolchains.sh
       - name: Validate packaging rules

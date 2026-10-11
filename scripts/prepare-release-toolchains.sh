@@ -28,6 +28,11 @@ if [[ ! -f "$archive" ]]; then
 fi
 echo "$checksum  $archive" | sha256sum --check --strict
 mkdir -p /opt/llvm-23
-tar -xJf "$archive" --strip-components=1 -C /opt/llvm-23
+# The full release is about 12 GiB. Keep the C driver, linker, archive tools and
+# compiler resources needed here; MLIR/Flang and static LLVM SDKs are unused.
+tar -xJf "$archive" --strip-components=1 --wildcards -C /opt/llvm-23 \
+    '*/bin/clang' '*/bin/clang-23' '*/bin/lld' '*/bin/ld.lld' \
+    '*/bin/llvm-ar' '*/bin/llvm-ranlib' '*/bin/llvm-nm' '*/lib/clang/*'
+if [[ -z "${LLVM_ARCHIVE:-}" ]]; then rm -- "$archive"; fi
 /opt/llvm-23/bin/clang --version
 /usr/local/bin/gcc --version
